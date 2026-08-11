@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  .tile {
+    width: 100vw; height: 100vh;
+    background: linear-gradient(135deg, #7b1fa2 0%, #4a3aab 55%, #1976d2 100%);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    gap: 4vw; padding: 4vh 4vw;
+  }
+  .icon { height: 52vh; filter: drop-shadow(0 6px 18px rgba(0,0,0,.35)); }
+  h1 { font-size: 15vh; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+  .tag { font-size: 6.2vh; opacity: .92; margin-top: 1.5vh; font-weight: 500; }
+  .chips { display: flex; gap: 1.2vw; margin-top: 3.5vh; flex-wrap: wrap; }
+  .chip {
+    font-size: 4.2vh; font-weight: 600;
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(255,255,255,.35);
+    border-radius: 100px; padding: .8vh 1.6vw;
+  }
+  body.small .tile { flex-direction: column; gap: 2vh; text-align: center; padding: 5vh 4vw; }
+  body.small .icon { height: 34vh; }
+  body.small h1 { font-size: 17vh; }
+  body.small .tag { font-size: 7.5vh; }
+  body.small .chips { display: none; }
+</style>
+</head>
+<body>
+  <div class="tile">
+    <img class="icon" src="../icons/icon128.png" alt="">
+    <div>
+      <h1>A11y Lens</h1>
+      <div class="tag">Accessibility auditing inside DevTools</div>
+      <div class="chips">
+        <span class="chip">axe-core scans</span>
+        <span class="chip">Guided wizards</span>
+        <span class="chip">Flow recording</span>
+        <span class="chip">WCAG reports</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    if (new URLSearchParams(location.search).get("size") === "small") {
+      document.body.classList.add("small");
+    }
+  </script>
+</body>
+</html>

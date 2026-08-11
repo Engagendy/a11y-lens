@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>A11y Lens — Options</title>
+    <style>
+      body { font: 14px/1.6 system-ui, sans-serif; max-width: 560px; margin: 40px auto; padding: 0 20px; }
+      h1 { font-size: 20px; }
+      .row { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+      .row label { flex: 1; }
+      select, input[type="number"] { font: inherit; padding: 4px 8px; }
+      .hint { color: #777; font-size: 12px; margin: -8px 0 14px; }
+      #saved { color: #2e7d32; font-weight: 600; opacity: 0; transition: opacity 0.3s; }
+      #saved.show { opacity: 1; }
+      [dir="rtl"] .row { direction: rtl; }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 A11y Lens — Options</h1>
+
+    <div class="row">
+      <label for="level">Default WCAG rule set</label>
+      <select id="level">
+        <option value="all">All rules</option>
+        <option value="wcag22aa">WCAG 2.2 AA</option>
+        <option value="wcag21aa">WCAG 2.1 AA</option>
+        <option value="wcag2aa">WCAG 2.0 AA</option>
+        <option value="wcag2a">WCAG 2.0 A</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="bestPractice">Include best-practice rules by default</label>
+      <input type="checkbox" id="bestPractice" />
+    </div>
+
+    <div class="row">
+      <label for="flowInterval">Flow recording scan interval (seconds)</label>
+      <input type="number" id="flowInterval" min="2" max="30" step="1" />
+    </div>
+    <p class="hint">How often the page is re-scanned while ⏺ Record flow is active (2–30s).</p>
+
+    <div class="row">
+      <label for="lang">Panel language / لغة اللوحة</label>
+      <select id="lang">
+        <option value="en">English</option>
+        <option value="ar">العربية (RTL)</option>
+      </select>
+    </div>
+    <p class="hint">Applies to the panel controls. Reopen DevTools after changing. Detailed test content remains in English for now.</p>
+
+    <p><span id="saved">✓ Saved</span></p>
+    <p class="hint">Settings save automatically when changed.</p>
+  </body>
+  <script src="options.js"></script>
+</html>

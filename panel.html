@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header>
+      <button id="scanBtn">▶ Scan this page</button>
+      <button id="flowBtn" title="Record a user flow: navigate and interact while A11y Lens scans every step and aggregates unique findings">⏺ Record flow</button>
+      <button id="helpBtn" class="help-btn" title="Help — what every feature does, with examples">?</button>
+      <select id="levelSelect" title="Which rule set to run">
+        <option value="all">All rules</option>
+        <option value="wcag22aa" selected>WCAG 2.2 AA</option>
+        <option value="wcag21aa">WCAG 2.1 AA</option>
+        <option value="wcag2aa">WCAG 2.0 AA</option>
+        <option value="wcag2a">WCAG 2.0 A</option>
+      </select>
+      <label class="check"><input type="checkbox" id="bestPractice" /> best practices</label>
+      <button id="highlightAllBtn" title="Outline every violating element, color-coded by severity" hidden>◉ Highlight all</button>
+      <button id="clearBtn" title="Remove highlights from the page">✕ Clear highlights</button>
+      <button id="contrastToggle" title="Color contrast checker">◐ Contrast</button>
+      <span id="status"></span>
+      <span class="spacer"></span>
+      <span id="exportGroup" hidden>
+        Export:
+        <button class="export" data-format="json">JSON</button>
+        <button class="export" data-format="csv">CSV</button>
+        <button class="export" data-format="html">HTML</button>
+      </span>
+    </header>
+
+    <div id="contrastBar" hidden>
+      <button id="pickFg">⧉ Pick text color</button>
+      <span class="swatch" id="fgSwatch"></span><code id="fgHex">#000000</code>
+      <button id="pickBg">⧉ Pick background</button>
+      <span class="swatch" id="bgSwatch"></span><code id="bgHex">#ffffff</code>
+      <span id="ratio" class="ratio">21.00 : 1</span>
+      <span id="contrastVerdicts"></span>
+      <span id="contrastUnsupported" class="empty" hidden>
+        EyeDropper API not available in this browser.
+      </span>
+    </div>
+
+    <div id="stale" class="stale" hidden>⚠ The page has changed since the last scan — results may be stale. Re-scan to refresh.</div>
+
+    <nav id="tabs">
+      <button data-view="auto" class="active">Automated</button>
+      <button data-view="manual">🧭 Manual tests <span id="manualProgress"></span></button>
+      <button data-view="help">❓ Help</button>
+    </nav>
+
+    <div id="summary" hidden>
+      <span class="pill critical" id="countCritical">0 critical</span>
+      <span class="pill serious" id="countSerious">0 serious</span>
+      <span class="pill moderate" id="countModerate">0 moderate</span>
+      <span class="pill minor" id="countMinor">0 minor</span>
+      <span class="pill passes" id="countPasses">0 passed</span>
+      <span id="diff" class="diff"></span>
+    </div>
+
+    <main id="results">
+      <p class="empty">Click <b>Scan this page</b> to run an axe-core audit on the inspected page.</p>
+    </main>
+
+    <main id="manual" hidden>
+      <p class="empty">Automated checks cover only ~30–50% of WCAG. These guided walkthroughs
+      cover what machines can't judge. Mark each one Pass / Fail / N-A — verdicts are saved
+      per URL and included in exports.</p>
+      <div id="manualList"></div>
+    </main>
+
+    <main id="help" hidden>
+      <p class="empty">Every A11y Lens feature, what it's for, and a concrete example of when it helps.</p>
+      <div id="helpList"></div>
+    </main>
+
+    <script src="panel.js"></script>
+  </body>
+</html>

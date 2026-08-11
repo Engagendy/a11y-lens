@@ -1,0 +1,10 @@
+{
+  "urls": [
+    "http://localhost:3000/",
+    "http://localhost:3000/about"
+  ],
+  "level": "wcag22aa",
+  "bestPractice": false,
+  "failOn": "new",
+  "baseline": "a11y-baseline.json"
+}

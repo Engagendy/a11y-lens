@@ -1,0 +1,94 @@
+# A11y Lens 🔍
+
+A Chrome extension (Manifest V3) that audits any web page for accessibility issues,
+powered by [axe-core](https://github.com/dequelabs/axe-core) — the same open-source
+engine behind axe DevTools.
+
+## Features
+
+- **DevTools panel** — a new "A11y Lens" tab inside Chrome DevTools
+- **One-click scan** — runs `axe.run()` on the inspected page
+- **Severity summary** — critical / serious / moderate / minor counts + passed checks
+- **Click-to-highlight** — click any flagged HTML snippet to outline and scroll to
+  that element on the page
+- **Fix guidance** — axe failure summaries and "Learn more" links per rule
+- **Rule-set picker** — scan against WCAG 2.0 A / 2.0 AA / 2.1 AA / 2.2 AA (or all
+  rules), optionally including axe best-practice rules
+- **Iframe scanning** — axe-core is injected into every frame, so violations inside
+  iframes are reported too (clicking one highlights the containing iframe)
+- **Export reports** — download results as JSON, CSV, or a standalone HTML report
+- **Highlight all** — outline every violating element at once, color-coded by severity
+  (worst impact wins when an element breaks several rules)
+- **Inspect** — jump straight from a finding to the element in the Elements panel
+- **Scan history & diff** — each URL's last scan is stored locally; the next scan
+  shows "N new · M fixed" and tags previously-unseen findings with a NEW badge
+- **Stale-results banner** — a MutationObserver watches the page after a scan;
+  if the DOM changes (or the page navigates), a warning suggests re-scanning
+- **Contrast checker** — pick any two colors on screen with the EyeDropper and
+  see the WCAG ratio plus AA/AAA pass/fail for normal and large text
+- **Guided manual tests (IGT wizards)** — a Manual tests tab with 10 guided tests
+  (keyboard, focus, headings, landmarks, alt quality, zoom, screen reader, motion,
+  forms). Each runs as a step-by-step wizard: one yes/no question at a time, the
+  verdict computed from your answers, and every "No" recorded as a specific finding
+  with an optional note and an element picked directly on the page. Interactive
+  helpers (numbered tab stops, heading outline, landmark overlay, alt-text overlay)
+  auto-run so the evidence is on screen while you answer. Verdicts and findings
+  persist per URL and appear in JSON/CSV/HTML exports
+- **Options page** — default WCAG level, best-practice toggle, flow scan interval,
+  and panel language: English or العربية with full RTL layout
+- **Keyboard shortcuts** — in the panel: S scan, R record/stop flow, X clear
+  highlights, C contrast, 1/2/3 switch tabs
+- **CI companion** (`ci/`) — Playwright + @axe-core/playwright script running the
+  same rule sets headlessly; fails builds on new violations vs a baseline
+  (see `ci/README.md`)
+- **Built-in Help tab** — every feature explained inside the panel with what it
+  does, why it helps, and a concrete example scenario
+- **User flow analysis** — hit ⏺ Record flow, then navigate and interact
+  (menus, modals, multi-page checkout…); every step and page state is scanned
+  automatically and unique findings are aggregated and labeled with the page
+  they came from
+
+## Install (unpacked)
+
+1. Open Chrome and go to `chrome://extensions`
+2. Enable **Developer mode** (toggle, top-right)
+3. Click **Load unpacked** and select this folder (`a11y-lens-extension`)
+
+## Use
+
+1. Open any page — or the included `test-page.html` (drag it into Chrome),
+   which is full of intentional violations
+2. Open DevTools (`F12` / `⌥⌘I`) and select the **A11y Lens** tab
+   (it may be hidden behind the `»` overflow menu)
+3. Click **▶ Scan this page**
+4. Expand a violation and click an HTML snippet to highlight the element
+
+> Note: Chrome blocks extensions on `chrome://` pages and the Chrome Web Store —
+> test on regular websites or local files.
+
+## Project structure
+
+| File | Purpose |
+|---|---|
+| `manifest.json` | MV3 manifest — permissions, background worker, DevTools page, options |
+| `background.js` | Service worker owning all `chrome.scripting`/`chrome.storage` work |
+| `devtools.html/js` | Registers the DevTools panel |
+| `panel.html/css/js` | The panel UI: scans, wizards, flow recording, help, i18n |
+| `options.html/js` | Options page (defaults, flow interval, language) |
+| `vendor/axe.min.js` | axe-core engine (v4.10.3, MPL-2.0), injected into pages |
+| `popup.html` | Toolbar popup with usage hint |
+| `test-page.html` | Page with intentional violations for testing |
+| `ci/` | Headless CI companion (Playwright + @axe-core/playwright) |
+
+## How it works
+
+DevTools panel pages cannot call `chrome.scripting` or `chrome.storage` directly,
+so the panel sends `{op, tabId, …}` messages to the background service worker,
+which injects `vendor/axe.min.js` into every frame, runs `axe.run(document)`,
+executes page helpers/highlighting, and persists history and manual-test state.
+The panel renders whatever comes back.
+
+## License notes
+
+`axe-core` is MPL-2.0 and free to use. "axe" and "axe DevTools" are Deque
+trademarks — this project uses only the open-source engine, with its own name and UI.

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<!-- Intentionally broken page to test A11y Lens. Missing lang attribute (violation). -->
+<head>
+  <meta charset="utf-8" />
+  <!-- Missing <title> is also a violation -->
+  <style>
+    body { font-family: sans-serif; margin: 40px; }
+    .low-contrast { color: #bbb; background: #fff; }
+    .fake-button { color: blue; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!-- Image with no alt text -->
+  <img src="https://via.placeholder.com/150" width="150" height="150" />
+
+  <!-- Low contrast text -->
+  <p class="low-contrast">This text has very poor color contrast against the background.</p>
+
+  <!-- Form input with no label -->
+  <input type="text" placeholder="Your name" />
+
+  <!-- Empty button -->
+  <button></button>
+
+  <!-- Link with no discernible text -->
+  <a href="https://example.com"></a>
+
+  <!-- Heading order skip: h1 missing, starts at h3 -->
+  <h3>Section heading (page has no h1)</h3>
+
+  <!-- div acting as a button with no role/tabindex -->
+  <div class="fake-button" onclick="alert('hi')">Click me (fake button)</div>
+
+  <!-- Duplicate IDs -->
+  <span id="dup">one</span>
+  <span id="dup">two</span>
+
+  <!-- Table without headers -->
+  <table>
+    <tr><td>Name</td><td>Age</td></tr>
+    <tr><td>Ali</td><td>30</td></tr>
+  </table>
+
+  <!-- Iframe with violations inside (tests cross-frame scanning) -->
+  <iframe title="embedded test frame" style="margin-top:20px;width:400px;height:120px"
+    srcdoc="&lt;img src='x.png'&gt;&lt;input type='text' placeholder='email'&gt;&lt;button&gt;&lt;/button&gt;">
+  </iframe>
+</body>
+</html>

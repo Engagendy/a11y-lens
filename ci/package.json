@@ -1,0 +1,16 @@
+{
+  "name": "a11y-lens-ci",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CI companion for A11y Lens — runs the same axe-core rule sets headlessly and fails the build on new violations.",
+  "scripts": {
+    "a11y": "node a11y-ci.mjs",
+    "a11y:baseline": "node a11y-ci.mjs --update-baseline",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "playwright": "^1.49.0"
+  }
+}

@@ -529,6 +529,20 @@ const HELPERS = {
 
 function dlsCheckInPage(data) {
   const out = {};
+  const cssPath = (el) => {
+    const parts = [];
+    let cur = el;
+    for (let depth = 0; cur && cur.nodeType === 1 && depth < 5; depth++) {
+      if (cur.id) { parts.unshift("#" + CSS.escape(cur.id)); break; }
+      const tag = cur.tagName.toLowerCase();
+      if (tag === "body" || tag === "html") { parts.unshift(tag); break; }
+      const parent = cur.parentElement;
+      const idx = parent ? [...parent.children].indexOf(cur) + 1 : 1;
+      parts.unshift(`${tag}:nth-child(${idx})`);
+      cur = parent;
+    }
+    return parts.join(" > ");
+  };
   const lang = (document.documentElement.lang || "").toLowerCase();
   const isAr = lang.startsWith("ar");
   out.lang = document.documentElement.lang || null;
@@ -564,6 +578,10 @@ function dlsCheckInPage(data) {
   const headings = [...document.querySelectorAll("h1,h2,h3")].slice(0, 10);
   out.headingFonts = [...new Set(headings.map((h) => fam(h).split(",")[0].trim()))].slice(0, 5);
   out.headingFontOk = headings.length === 0 || headings.every((h) => hasAny(fam(h), expected.heading));
+  out.fontOffenders = headings
+    .filter((h) => !hasAny(fam(h), expected.heading))
+    .slice(0, 8)
+    .map((h) => ({ sel: cssPath(h), tag: h.tagName.toLowerCase(), font: fam(h).split(",")[0].trim().replace(/"/g, ""), text: h.textContent.trim().slice(0, 40) }));
   out.expectedFonts = expected;
 
   const weights = new Set();
@@ -594,12 +612,16 @@ function dlsCheckInPage(data) {
   const sampleEls = document.querySelectorAll(
     "a,button,input,select,h1,h2,h3,header,nav,footer,[class*='btn'],[class*='aegov']");
   const colorUse = new Map();
+  const colorSels = new Map();
   for (const el of [...sampleEls].slice(0, 300)) {
     const cs = getComputedStyle(el);
     for (const c of [cs.color, cs.backgroundColor, cs.borderColor]) {
       const hex = toHex(c);
       if (!hex || hex === "#ffffff" || hex === "#000000") continue;
       colorUse.set(hex, (colorUse.get(hex) || 0) + 1);
+      if (!colorSels.has(hex)) colorSels.set(hex, []);
+      const sels = colorSels.get(hex);
+      if (sels.length < 3) sels.push(cssPath(el));
     }
   }
   let inPal = 0, outPal = 0;
@@ -607,7 +629,7 @@ function dlsCheckInPage(data) {
   for (const [hex, count] of colorUse) {
     const n = nearest(hex);
     if (data.colors[hex] || n.close) inPal += count;
-    else { outPal += count; offenders.push({ hex, count, nearestToken: n.token, nearestHex: n.hex }); }
+    else { outPal += count; offenders.push({ hex, count, nearestToken: n.token, nearestHex: n.hex, sels: colorSels.get(hex) || [] }); }
   }
   out.colorsSampled = inPal + outPal;
   out.colorsInPalette = inPal;
@@ -623,7 +645,7 @@ function dlsCheckInPage(data) {
   for (const b of btns.slice(0, 50)) {
     const h = Math.round(b.getBoundingClientRect().height);
     const ok = data.button.heights.some((s) => Math.abs(h - s) <= data.button.tolerance);
-    if (!ok) badBtns.push({ height: h, cls: b.className.split(" ").slice(0, 3).join(" ") });
+    if (!ok) badBtns.push({ height: h, cls: b.className.split(" ").slice(0, 3).join(" "), sel: cssPath(b), text: b.textContent.trim().slice(0, 30) });
   }
   out.buttons = btns.length;
   out.buttonsOffSpec = badBtns.slice(0, 5);
@@ -632,11 +654,90 @@ function dlsCheckInPage(data) {
   // --- raw controls not using DLS component classes ---
   const controls = [...document.querySelectorAll("button,input:not([type=hidden]),select,textarea")];
   out.controls = controls.length;
-  out.controlsWithAegov = controls.filter((el) =>
-    [...el.classList].some((c) => c.startsWith("aegov-")) ||
-    (el.closest("[class*='aegov-']") !== null)).length;
+  const inDls = (el) => [...el.classList].some((c) => c.startsWith("aegov-")) ||
+    (el.closest("[class*='aegov-']") !== null);
+  out.controlsWithAegov = controls.filter(inDls).length;
+  out.rawControls = controls.filter((el) => !inDls(el)).slice(0, 10)
+    .map((el) => ({ sel: cssPath(el), tag: el.tagName.toLowerCase() + (el.type ? "[" + el.type + "]" : "") }));
 
   return out;
+}
+
+function dlsHighlightInPage(data) {
+  window.__a11yLensMuted = true;
+  setTimeout(() => { window.__a11yLensMuted = false; }, 2000);
+  document.querySelectorAll(".__a11y_lens_overlay").forEach((el) => el.remove());
+  let count = 0;
+  const MAX = 60;
+  const mark = (el, label) => {
+    if (count >= MAX || !el.getClientRects().length) return;
+    count++;
+    el.setAttribute("data-a11y-lens", "dls");
+    el.style.setProperty("outline", "3px dashed #b68a35", "important");
+    el.style.setProperty("outline-offset", "2px", "important");
+    const r = el.getBoundingClientRect();
+    const b = document.createElement("div");
+    b.className = "__a11y_lens_overlay";
+    b.textContent = label;
+    b.style.cssText = `position:absolute;z-index:2147483647;left:${scrollX + r.left}px;top:${scrollY + r.top - 16}px;` +
+      "background:#b68a35;color:#fff;font:bold 10px/15px sans-serif;padding:0 5px;border-radius:3px 3px 0 0;pointer-events:none;max-width:340px;white-space:nowrap;overflow:hidden";
+    document.body.appendChild(b);
+  };
+
+  // off-spec aegov-btn heights
+  for (const btn of [...document.querySelectorAll(".aegov-btn")].slice(0, 80)) {
+    const h = Math.round(btn.getBoundingClientRect().height);
+    if (h > 0 && !data.button.heights.some((s) => Math.abs(h - s) <= data.button.tolerance)) {
+      mark(btn, `DLS: ${h}px \u2260 32/40/48/52`);
+    }
+  }
+
+  // wrong fonts on body-visible headings
+  const lang = (document.documentElement.lang || "").toLowerCase();
+  const expected = data.fonts[lang.startsWith("ar") ? "ar" : "en"];
+  for (const h of [...document.querySelectorAll("h1,h2,h3")].slice(0, 30)) {
+    const fam = getComputedStyle(h).fontFamily.toLowerCase();
+    if (!expected.heading.some((n) => fam.includes(n))) {
+      mark(h, "DLS font: " + fam.split(",")[0].trim().replace(/"/g, ""));
+    }
+  }
+
+  // off-palette colors on prominent elements
+  const toHex = (rgb) => {
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(rgb);
+    if (!m) return null;
+    if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+    return "#" + [m[1], m[2], m[3]].map((v) => (+v).toString(16).padStart(2, "0")).join("");
+  };
+  const paletteHex = Object.keys(data.colors);
+  const parse = (x) => [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16)];
+  const near = (hex) => {
+    const [r, g, b] = parse(hex);
+    let best = null, bd = Infinity;
+    for (const p of paletteHex) {
+      const [pr, pg, pb] = parse(p);
+      const d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+      if (d < bd) { bd = d; best = p; }
+    }
+    return { token: data.colors[best], close: bd <= 900 };
+  };
+  for (const el of [...document.querySelectorAll("a,button,h1,h2,h3,[class*='btn']")].slice(0, 200)) {
+    const cs = getComputedStyle(el);
+    for (const c of [cs.color, cs.backgroundColor]) {
+      const hex = toHex(c);
+      if (!hex || hex === "#ffffff" || hex === "#000000" || data.colors[hex]) continue;
+      const n = near(hex);
+      if (!n.close) { mark(el, `DLS color ${hex} \u2192 ${n.token}`); break; }
+    }
+  }
+
+  // form controls outside DLS components
+  for (const el of [...document.querySelectorAll("button,input:not([type=hidden]),select,textarea")].slice(0, 60)) {
+    const inDls = [...el.classList].some((c) => c.startsWith("aegov-")) || el.closest("[class*='aegov-']");
+    if (!inDls) mark(el, "DLS: not in a DLS component");
+  }
+
+  return count;
 }
 
 /* ---------- message router ---------- */
@@ -677,6 +778,13 @@ EXT.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { result: await exec(tabId, staleCheckInPage) };
       case "dlsCheck":
         return { result: await exec(tabId, dlsCheckInPage, [DLS_DATA]) };
+      case "captureTab": {
+        const tab = await EXT.tabs.get(tabId);
+        const dataUrl = await EXT.tabs.captureVisibleTab(tab.windowId, { format: "jpeg", quality: 75 });
+        return { result: dataUrl };
+      }
+      case "dlsHighlight":
+        return { result: await exec(tabId, dlsHighlightInPage, [DLS_DATA]) };
       case "helper":
         if (!HELPERS[msg.name]) throw new Error("unknown helper: " + msg.name);
         return { result: await exec(tabId, HELPERS[msg.name]) };

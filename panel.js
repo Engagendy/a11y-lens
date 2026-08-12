@@ -1724,6 +1724,10 @@ const DLS_STR = {
     btnOk: (n) => `All ${n} aegov-btn elements match the DLS height spec (32/40/48/52px).`,
     btnBad: (n, off) => `${off.length} of ${n} buttons are off-spec (expected 32/40/48/52px): ` + off.map((o) => o.height + "px").join(", "),
     exportHtml: "⬇ HTML", exportPdf: "⬇ PDF",
+    highlightGaps: "◉ Highlight gaps",
+    affected: "Affected elements:",
+    screenshotNote: "Viewport screenshot with DLS gaps outlined (gold dashed):",
+    gapsShown: (n) => `${n} DLS gap(s) outlined on the page (gold dashed) — ✕ Clear highlights removes them.`,
     reportTitle: "UAE Design System conformance report",
   },
   ar: {
@@ -1757,6 +1761,10 @@ const DLS_STR = {
     btnOk: (n) => `جميع أزرار aegov-btn (${n}) تطابق مواصفة الارتفاع (32/40/48/52 بكسل).`,
     btnBad: (n, off) => `${off.length} من ${n} زراً خارج المواصفة (المتوقع 32/40/48/52 بكسل): ` + off.map((o) => o.height + "px").join("، "),
     exportHtml: "⬇ HTML", exportPdf: "⬇ PDF",
+    highlightGaps: "◉ تظليل الفجوات",
+    affected: "العناصر المتأثرة:",
+    screenshotNote: "لقطة شاشة لمنطقة العرض مع تحديد الفجوات (إطار ذهبي متقطع):",
+    gapsShown: (n) => `تم تحديد ${n} فجوة على الصفحة (إطار ذهبي متقطع) — «✕ مسح التظليل» يزيلها.`,
     reportTitle: "تقرير مطابقة نظام التصميم الإماراتي",
   },
 };
@@ -1783,7 +1791,7 @@ async function runDlsCheck() {
   }
 }
 
-function dlsRow(verdict, label, detailNodes) {
+function dlsRow(verdict, label, detailNodes, elements) {
   const row = document.createElement("div");
   row.className = "dls-row";
   const v = document.createElement("span");
@@ -1795,6 +1803,25 @@ function dlsRow(verdict, label, detailNodes) {
   const d = document.createElement("span");
   d.className = "dls-detail";
   for (const n of detailNodes) d.append(n);
+  if (elements && elements.length) {
+    const list = document.createElement("div");
+    list.className = "dls-els";
+    const cap = document.createElement("div");
+    cap.textContent = dt("affected");
+    cap.style.fontWeight = "600";
+    list.appendChild(cap);
+    for (const e of elements) {
+      const item = document.createElement("div");
+      const code = document.createElement("code");
+      code.textContent = e.sel;
+      code.title = "Click to highlight on the page";
+      code.style.cursor = "pointer";
+      code.addEventListener("click", () => highlight([e.sel]));
+      item.append(code, " — " + e.info);
+      list.appendChild(item);
+    }
+    d.appendChild(list);
+  }
   row.append(v, l, d);
   return row;
 }
@@ -1831,7 +1858,8 @@ function renderDlsReport(r) {
   } else {
     const code = document.createElement("code");
     code.textContent = [r.bodyFont.split(",")[0], ...r.headingFonts].slice(0, 3).join(", ");
-    rows.push(["fail", dt("typography"), [dt("fontsBad", expStr), code]]);
+    rows.push(["fail", dt("typography"), [dt("fontsBad", expStr), code],
+      (r.fontOffenders || []).map((o) => ({ sel: o.sel, info: `<${o.tag}> "${o.text}" — ${o.font}` }))]);
   }
 
   // 3. weights
@@ -1852,7 +1880,8 @@ function renderDlsReport(r) {
         code.textContent = `${o.hex} (→ ${o.nearestToken})`;
         detail.push(code, " ");
       }
-      rows.push([pct >= 40 ? "warn" : "fail", dt("colors"), detail]);
+      rows.push([pct >= 40 ? "warn" : "fail", dt("colors"), detail,
+        r.offenders.flatMap((o) => (o.sels || []).slice(0, 2).map((sel) => ({ sel, info: `${o.hex} → ${o.nearestToken}` })))]);
     }
   }
 
@@ -1875,7 +1904,8 @@ function renderDlsReport(r) {
   if (r.aegovCount > 0 && r.controls > 0) {
     const ratio = r.controlsWithAegov / r.controls;
     rows.push([ratio >= 0.8 ? "pass" : "warn", dt("components"),
-      [dt("componentsInfo", r.controlsWithAegov, r.controls)]]);
+      [dt("componentsInfo", r.controlsWithAegov, r.controls)],
+      (r.rawControls || []).map((o) => ({ sel: o.sel, info: o.tag }))]);
   }
 
   // 7b. component catalog + button sizing (when adopted)
@@ -1887,7 +1917,8 @@ function renderDlsReport(r) {
     }
     if (r.buttons > 0) {
       rows.push([r.buttonsOffSpec.length === 0 ? "pass" : "warn", dt("buttons"),
-        [r.buttonsOffSpec.length === 0 ? dt("btnOk", r.buttons) : dt("btnBad", r.buttons, r.buttonsOffSpec)]]);
+        [r.buttonsOffSpec.length === 0 ? dt("btnOk", r.buttons) : dt("btnBad", r.buttons, r.buttonsOffSpec)],
+        r.buttonsOffSpec.map((o) => ({ sel: o.sel, info: `"${o.text}" — ${o.height}px` }))]);
     }
   }
 
@@ -1900,9 +1931,9 @@ function renderDlsReport(r) {
   }
 
   let passed = 0;
-  for (const [verdict, label, detail] of rows) {
+  for (const [verdict, label, detail, elements] of rows) {
     if (verdict === "pass") passed++;
-    dlsReportEl.appendChild(dlsRow(verdict, label, detail));
+    dlsReportEl.appendChild(dlsRow(verdict, label, detail, elements));
   }
   const score = document.createElement("div");
   score.className = "dls-row";
@@ -1914,11 +1945,14 @@ function renderDlsReport(r) {
   lastDlsExport = {
     scannedAt: new Date().toISOString(),
     score: { passed, total: rows.length },
-    rows: [...dlsReportEl.querySelectorAll(".dls-row")].slice(0, rows.length).map((row, i) => ({
-      verdict: rows[i][0],
-      label: rows[i][1],
-      detail: row.querySelector(".dls-detail")?.textContent || "",
-    })),
+    rows: rows.map((rw, i) => {
+      const rowEl = dlsReportEl.querySelectorAll(".dls-row")[i];
+      const detailEl = rowEl && rowEl.querySelector(".dls-detail");
+      let detailText = detailEl ? detailEl.textContent : "";
+      const elsEl = detailEl && detailEl.querySelector(".dls-els");
+      if (elsEl) detailText = detailText.replace(elsEl.textContent, "");
+      return { verdict: rw[0], label: rw[1], detail: detailText, elements: rw[3] || [] };
+    }),
   };
 
   const actions = document.createElement("div");
@@ -1929,7 +1963,17 @@ function renderDlsReport(r) {
   const pdfBtn = document.createElement("button");
   pdfBtn.textContent = dt("exportPdf");
   pdfBtn.addEventListener("click", () => exportDls("pdf"));
-  actions.append(htmlBtn, pdfBtn);
+  const gapsBtn = document.createElement("button");
+  gapsBtn.textContent = dt("highlightGaps");
+  gapsBtn.addEventListener("click", async () => {
+    try {
+      const n = await bg("dlsHighlight");
+      statusEl.textContent = dt("gapsShown", n);
+    } catch (err) {
+      statusEl.textContent = "Highlight failed: " + (err?.message || err);
+    }
+  });
+  actions.append(gapsBtn, htmlBtn, pdfBtn);
   dlsReportEl.appendChild(actions);
 }
 
@@ -1941,9 +1985,12 @@ function dlsSectionHtml() {
   const mark = { pass: "✓ PASS", warn: "△ WARN", fail: "✗ FAIL" };
   const rows = lastDlsExport.rows.map((r) => `
     <tr>
-      <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:700;white-space:nowrap;color:${color[r.verdict]}">${mark[r.verdict]}</td>
-      <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap">${escHtml(r.label)}</td>
-      <td style="padding:5px 10px;border-bottom:1px solid #eee">${escHtml(r.detail)}</td>
+      <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:700;white-space:nowrap;vertical-align:top;color:${color[r.verdict]}">${mark[r.verdict]}</td>
+      <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap;vertical-align:top">${escHtml(r.label)}</td>
+      <td style="padding:5px 10px;border-bottom:1px solid #eee">${escHtml(r.detail)}${
+        r.elements && r.elements.length ? `<div style="margin-top:4px">${r.elements.map((e) =>
+          `<div><code style="background:#f4f0e8;border-radius:3px;padding:0 4px;font-size:12px">${escHtml(e.sel)}</code> <span style="color:#777">${escHtml(e.info)}</span></div>`).join("")}</div>` : ""
+      }</td>
     </tr>`).join("");
   return `
   <h2 style="font-size:18px;margin-top:30px;border-top:4px solid #b68a35;padding-top:12px">🇦🇪 ${escHtml(dt("reportTitle"))}
@@ -1955,11 +2002,22 @@ function dlsSectionHtml() {
 async function exportDls(format) {
   if (!lastDlsExport) return;
   const url = await getPageUrl();
+  let shot = null;
+  try {
+    await bg("dlsHighlight");
+    await new Promise((r) => setTimeout(r, 400));
+    shot = await bg("captureTab");
+  } catch (_) { /* capture unavailable (e.g. Firefox permission) — export without it */ }
+  const shotHtml = shot
+    ? `<h3 style="margin-top:24px">${escHtml(dt("screenshotNote"))}</h3>
+       <img src="${shot}" style="max-width:100%;border:1px solid #ddd;border-radius:6px">`
+    : "";
   const html = `<!DOCTYPE html>
 <html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${escHtml(dt("reportTitle"))}</title></head>
 <body style="font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px">
   <p><b>${escHtml(url)}</b><br>${escHtml(lastDlsExport.scannedAt)}</p>
   ${dlsSectionHtml()}
+  ${shotHtml}
   ${format === "pdf" ? "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script>" : ""}
 </body></html>`;
   if (format === "pdf") {

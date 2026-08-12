@@ -408,3 +408,15 @@ details.violation > summary::marker { content: ""; }
   padding: 1px 5px;
   vertical-align: middle;
 }
+
+.dls-els {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.dls-els code {
+  font: 11px ui-monospace, Menlo, monospace;
+  background: color-mix(in srgb, #b68a35 12%, transparent);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.dls-els code:hover { outline: 1px solid #b68a35; }

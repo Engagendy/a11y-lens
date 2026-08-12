@@ -311,6 +311,8 @@ function render(report) {
         fix.textContent = node.failureSummary;
         nodeEl.appendChild(fix);
       }
+      const fixSuggestion = A11yFixes.suggestFix(v.id, node, settings.framework || "html");
+      if (fixSuggestion) nodeEl.appendChild(buildFixSuggestion(v, node, fixSuggestion));
       body.appendChild(nodeEl);
     }
 
@@ -324,6 +326,93 @@ function render(report) {
     det.appendChild(body);
     resultsEl.appendChild(det);
   }
+}
+
+/* ---------------- fix suggestions ---------------- */
+
+function buildFixSuggestion(v, node, fix) {
+  const wrap = document.createElement("div");
+  wrap.className = "fix-suggestion";
+
+  const snippet = document.createElement("code");
+  snippet.className = "fix-snippet";
+  snippet.textContent = fix.snippet;
+  wrap.appendChild(snippet);
+
+  const note = document.createElement("div");
+  note.className = "fix-note";
+  note.textContent = fix.note;
+  wrap.appendChild(note);
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = "Copy fix";
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(fix.snippet);
+    copyBtn.textContent = "Copied ✓";
+    setTimeout(() => { copyBtn.textContent = "Copy fix"; }, 1200);
+  });
+  actions.appendChild(copyBtn);
+
+  const patch = A11yFixes.previewPatch(v.id, node);
+  if (patch && node.target.length === 1) {
+    const previewBtn = document.createElement("button");
+    previewBtn.textContent = "Preview fix";
+    previewBtn.addEventListener("click", async () => {
+      try {
+        if (previewBtn.classList.contains("on")) {
+          await bg("undoFix", { selector: node.target[0] });
+          previewBtn.classList.remove("on");
+          previewBtn.textContent = "Preview fix";
+        } else {
+          await bg("applyFix", { selector: node.target[0], patch });
+          previewBtn.classList.add("on");
+          previewBtn.textContent = "Undo";
+        }
+      } catch (err) {
+        statusEl.textContent = "Preview failed: " + (err?.message || err);
+      }
+    });
+    actions.appendChild(previewBtn);
+  }
+
+  const aiBtn = document.createElement("button");
+  aiBtn.textContent = "🤖 AI fix";
+  aiBtn.addEventListener("click", async () => {
+    let out = wrap.querySelector(".ai-output");
+    if (!out) {
+      out = document.createElement("div");
+      out.className = "ai-output";
+      wrap.appendChild(out);
+    }
+    try {
+      const key = await bg("storeGet", { key: "aiKey" });
+      if (!key) {
+        out.textContent = "Set an API key in Options (right-click the extension icon → Options) to enable AI fixes.";
+        return;
+      }
+      aiBtn.disabled = true;
+      out.textContent = "Thinking…";
+      const prompt =
+        "You are an accessibility expert. Fix this specific WCAG violation.\n" +
+        "Rule: " + v.id + " — " + v.help + "\n" +
+        "Failure: " + node.failureSummary + "\n" +
+        "HTML: " + node.html + "\n" +
+        "Framework: " + (settings.framework || "html") + "\n" +
+        "Reply with ONLY the corrected code snippet followed by one short explanation line.";
+      out.textContent = await bg("aiFix", { prompt });
+    } catch (err) {
+      out.textContent = "AI fix failed: " + (err?.message || err);
+    } finally {
+      aiBtn.disabled = false;
+    }
+  });
+  actions.appendChild(aiBtn);
+
+  wrap.appendChild(actions);
+  return wrap;
 }
 
 /* ---------------- history / diff ---------------- */
@@ -1013,6 +1102,8 @@ function exportReport(format) {
     download(base + ".csv", "text/csv", toCsv(lastReport));
   } else if (format === "html") {
     download(base + ".html", "text/html", toHtml(lastReport));
+  } else if (format === "issues") {
+    download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport()));
   }
 }
 
@@ -1188,6 +1279,12 @@ const HELP_TOPICS = [
     what: "Ten guided tests for what automation can't judge. Each runs as a wizard: one yes/no question at a time, the verdict computed from your answers. Every 'No' is recorded as a specific finding — optionally with a note and an element you pick directly on the page.",
     benefit: "Automated tools catch only ~30–50% of WCAG. The wizards structure the rest so a non-expert can do a credible audit, and the findings land in your exports next to the automated ones.",
     example: "In the keyboard wizard you answer 'No' to 'Could you Tab out of every widget?', click 📌, click the trapped modal on the page — the report now contains 'Keyboard trap detected' with that element's selector.",
+  },
+  {
+    icon: "🔧", title: "Fix suggestions, Preview fix & AI fix",
+    what: "Findings now include a ready-to-paste corrected snippet built from the element's actual HTML (Plain HTML, React/JSX, or Vue — set the framework in Options). Contrast failures get a computed nearest passing color. 'Preview fix' applies the change live on the page (with Undo) so you can re-scan and confirm before touching source. Optional '🤖 AI fix' sends the single offending snippet to the Claude API using your own key from Options. The 'Issues' export produces GitHub-ready markdown, and the CI companion prints the same suggestions with --suggest.",
+    benefit: "The tool stops at 'here's what's broken' for most scanners — this closes the loop to 'here's the fix, see it working, paste it'.",
+    example: "A contrast finding says #9e9e9e fails on white. The suggestion shows 'color: #757575' (4.61:1 ✓, same hue). Preview fix recolors the live page, a re-scan passes, you copy the one-line CSS change into your stylesheet.",
   },
   {
     icon: "⌨", title: "Keyboard shortcuts & options",

@@ -41,6 +41,16 @@ engine behind axe DevTools.
 - **CI companion** (`ci/`) — Playwright + @axe-core/playwright script running the
   same rule sets headlessly; fails builds on new violations vs a baseline
   (see `ci/README.md`)
+- **Fix suggestions** — every supported finding shows a corrected, copy-ready
+  snippet built from the element's actual HTML (Plain HTML / React / Vue, set in
+  Options); contrast failures include a computed nearest passing color
+- **Preview fix / Undo** — apply the suggested change live in the page to verify
+  it re-scans clean before touching source code
+- **AI fix (opt-in)** — bring your own Anthropic API key (stored device-local
+  only) for context-aware fixes of a single finding
+- **Issues export** — download findings as GitHub-ready markdown, one issue
+  section per rule with suggested fixes included; the CI companion prints the
+  same suggestions via `--suggest`
 - **Built-in Help tab** — every feature explained inside the panel with what it
   does, why it helps, and a concrete example scenario
 - **User flow analysis** — hit ⏺ Record flow, then navigate and interact

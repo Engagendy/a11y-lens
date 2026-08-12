@@ -26,7 +26,11 @@ Edit `a11y.config.json`:
 ```bash
 npm run a11y:baseline   # first run: accept current violations as known issues
 npm run a11y            # every run after: fails (exit 1) on NEW violations
+npm run a11y -- --suggest   # also print a suggested fix snippet for each failing finding
 ```
+
+`--suggest` uses the same fix engine (`fixes.js`) as the extension's DevTools
+panel, so CI output and the panel suggest identical fixes.
 
 Fix flow: CI fails → open the listed page in Chrome/Brave → A11y Lens DevTools
 panel → scan → click the finding to highlight/Inspect → fix → `npm run a11y`

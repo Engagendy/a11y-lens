@@ -10,8 +10,11 @@
 //         "any" — fail on any violation at all
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { chromium } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
+
+const require = createRequire(import.meta.url);
 
 // Same cumulative tag map as the extension's panel.
 const LEVEL_TAGS = {
@@ -22,6 +25,8 @@ const LEVEL_TAGS = {
 };
 
 const updateBaseline = process.argv.includes("--update-baseline");
+const suggest = process.argv.includes("--suggest");
+const A11yFixes = suggest ? require("../fixes.js") : null;
 const configPath = process.argv.find((a) => a.endsWith(".json") && !a.includes("baseline")) || "a11y.config.json";
 const config = JSON.parse(readFileSync(new URL(configPath, import.meta.url), "utf8"));
 
@@ -56,6 +61,7 @@ for (const url of config.urls) {
           helpUrl: v.helpUrl,
           selector: node.target.join(" "),
           html: (node.html || "").slice(0, 200),
+          failureSummary: node.failureSummary || "",
         });
       }
     }
@@ -100,7 +106,21 @@ if (failing.length) {
     console.log(`    page:     ${f.url}`);
     console.log(`    selector: ${f.selector}`);
     console.log(`    html:     ${f.html}`);
-    console.log(`    fix:      ${f.helpUrl}\n`);
+    console.log(`    fix:      ${f.helpUrl}`);
+    if (A11yFixes) {
+      const s = A11yFixes.suggestFix(f.rule, {
+        html: f.html,
+        target: [f.selector],
+        failureSummary: f.failureSummary,
+      }, "html");
+      if (s) {
+        const lines = s.snippet.split("\n");
+        console.log(`    suggest:  ${lines[0]}`);
+        for (const line of lines.slice(1)) console.log(`              ${line}`);
+        if (s.note) console.log(`              ${s.note}`);
+      }
+    }
+    console.log("");
   }
   console.log("Tip: open the page in Chrome/Brave and use the A11y Lens DevTools panel to debug these interactively.");
   process.exit(1);

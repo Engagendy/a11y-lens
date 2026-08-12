@@ -41,6 +41,15 @@
     <p class="hint">How often the page is re-scanned while ⏺ Record flow is active (2–30s).</p>
 
     <div class="row">
+      <label for="framework">Fix snippet framework</label>
+      <select id="framework">
+        <option value="html">Plain HTML</option>
+        <option value="react">React / JSX</option>
+        <option value="vue">Vue</option>
+      </select>
+    </div>
+
+    <div class="row">
       <label for="lang">Panel language / لغة اللوحة</label>
       <select id="lang">
         <option value="en">English</option>
@@ -48,6 +57,22 @@
       </select>
     </div>
     <p class="hint">Applies to the panel controls. Reopen DevTools after changing. Detailed test content remains in English for now.</p>
+
+    <h1>AI fix (optional)</h1>
+
+    <div class="row">
+      <label for="aiKey">Anthropic API key</label>
+      <input type="password" id="aiKey" placeholder="sk-ant-..." />
+    </div>
+
+    <div class="row">
+      <label for="aiModel">Model</label>
+      <select id="aiModel">
+        <option value="claude-opus-4-8">Claude Opus 4.8 (default)</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5 — faster/cheaper</option>
+      </select>
+    </div>
+    <p class="hint">The key is stored locally on this device only and is sent only to api.anthropic.com when you click AI fix. Leave empty to disable the feature.</p>
 
     <p><span id="saved">✓ Saved</span></p>
     <p class="hint">Settings save automatically when changed.</p>

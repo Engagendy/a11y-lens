@@ -148,6 +148,51 @@ function pickCheckInPage() {
   return window.__a11yLensPicked || null;
 }
 
+function applyFixInPage(selector, patch) {
+  window.__a11yLensMuted = true;
+  setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
+  let el = null;
+  try { el = document.querySelector(selector); } catch (_) {}
+  if (!el) return false;
+  window.__a11yLensUndo = window.__a11yLensUndo || {};
+  if (!window.__a11yLensUndo[selector]) {
+    const undo = { attrs: {}, styles: {} };
+    for (const name of Object.keys(patch.attrs || {})) {
+      undo.attrs[name] = el.hasAttribute(name) ? el.getAttribute(name) : null;
+    }
+    for (const prop of Object.keys(patch.styles || {})) {
+      undo.styles[prop] = el.style.getPropertyValue(prop);
+    }
+    window.__a11yLensUndo[selector] = undo;
+  }
+  for (const [name, value] of Object.entries(patch.attrs || {})) {
+    el.setAttribute(name, value);
+  }
+  for (const [prop, value] of Object.entries(patch.styles || {})) {
+    el.style.setProperty(prop, value, "important");
+  }
+  return true;
+}
+
+function undoFixInPage(selector) {
+  window.__a11yLensMuted = true;
+  setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
+  let el = null;
+  try { el = document.querySelector(selector); } catch (_) {}
+  const undo = window.__a11yLensUndo?.[selector];
+  if (!el || !undo) return false;
+  for (const [name, value] of Object.entries(undo.attrs)) {
+    if (value === null) el.removeAttribute(name);
+    else el.setAttribute(name, value);
+  }
+  for (const [prop, value] of Object.entries(undo.styles)) {
+    if (value === "") el.style.removeProperty(prop);
+    else el.style.setProperty(prop, value, "important");
+  }
+  delete window.__a11yLensUndo[selector];
+  return true;
+}
+
 function helperTabStops() {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
@@ -277,7 +322,7 @@ const HELPERS = {
 
 /* ---------- message router ---------- */
 
-const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en" };
+const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html" };
 
 async function exec(tabId, func, args, allFrames = false) {
   const results = await chrome.scripting.executeScript({
@@ -318,6 +363,34 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { result: await exec(tabId, pickStartInPage) };
       case "pickCheck":
         return { result: await exec(tabId, pickCheckInPage) };
+      case "applyFix":
+        return { result: await exec(tabId, applyFixInPage, [msg.selector, msg.patch]) };
+      case "undoFix":
+        return { result: await exec(tabId, undoFixInPage, [msg.selector]) };
+      case "aiFix": {
+        const { aiKey, aiModel } = await chrome.storage.local.get(["aiKey", "aiModel"]);
+        if (!aiKey) throw new Error("No API key set — add one in Options");
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": aiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true",
+          },
+          body: JSON.stringify({
+            model: aiModel || "claude-opus-4-8",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: msg.prompt }],
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.error?.message || res.statusText);
+        }
+        const json = await res.json();
+        return { result: json.content.filter((b) => b.type === "text").map((b) => b.text).join("") };
+      }
       case "storeGet":
         return { result: (await chrome.storage.local.get(msg.key))[msg.key] ?? null };
       case "storeSet":

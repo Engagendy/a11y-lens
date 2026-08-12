@@ -613,6 +613,11 @@ async function startStaleWatch() {
 
 EXT.devtools.network.onNavigated.addListener(() => {
   clearInterval(stalePoll);
+  // A DLS report always belongs to one page — drop it on navigation so a stale
+  // report can't be read or exported against the new page.
+  dlsReportEl.hidden = true;
+  dlsReportEl.textContent = "";
+  lastDlsExport = null;
   if (flowRecording) {
     setTimeout(flowScanOnce, 1200);
     return;
@@ -1193,7 +1198,7 @@ function manualResultsForExport() {
 
 /* ---------------- export ---------------- */
 
-function exportReport(format) {
+async function exportReport(format) {
   if (!lastReport) return;
   const base = "a11y-lens-" + safeName(lastReport.url) + "-" +
     lastReport.scannedAt.slice(0, 19).replace(/[:T]/g, "-");
@@ -1202,19 +1207,40 @@ function exportReport(format) {
     download(base + ".json", "application/json", JSON.stringify(payload, null, 2));
   } else if (format === "csv") {
     download(base + ".csv", "text/csv", toCsv(lastReport));
-  } else if (format === "html") {
-    download(base + ".html", "text/html", toHtml(lastReport));
-  } else if (format === "pdf") {
-    // Print-ready report in a new tab; the user saves as PDF from the print dialog.
-    const html = toHtml(lastReport).replace(
-      "</body>",
-      "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script></body>"
-    );
-    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    window.open(url);
-    statusEl.textContent = "Report opened in a new tab — choose 'Save as PDF' in the print dialog.";
+  } else if (format === "html" || format === "pdf") {
+    const shot = await captureScanShot();
+    let html = toHtml(lastReport, shot);
+    if (format === "pdf") {
+      // Print-ready report in a new tab; the user saves as PDF from the print dialog.
+      html = html.replace(
+        "</body>",
+        "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script></body>"
+      );
+      window.open(URL.createObjectURL(new Blob([html], { type: "text/html" })));
+      statusEl.textContent = "Report opened in a new tab — choose 'Save as PDF' in the print dialog.";
+    } else {
+      download(base + ".html", "text/html", html);
+    }
   } else if (format === "issues") {
     download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport()));
+  }
+}
+
+// Outline all violations on the page, then capture the visible tab so the
+// report carries visual evidence. Returns null when unavailable.
+async function captureScanShot() {
+  if (!lastReport || !lastReport.violations.length) return null;
+  if (lastReport.url.startsWith("user flow")) return null;
+  try {
+    const items = [];
+    for (const v of lastReport.violations) {
+      for (const n of v.nodes) items.push({ sel: n.target[0], impact: v.impact });
+    }
+    await bg("highlightAll", { items });
+    await new Promise((r) => setTimeout(r, 400));
+    return await bg("captureTab");
+  } catch (_) {
+    return null;
   }
 }
 
@@ -1287,13 +1313,30 @@ function escHtml(s) {
   );
 }
 
-function toHtml(report) {
+function toHtml(report, shot) {
   const counts = { critical: 0, serious: 0, moderate: 0, minor: 0 };
   for (const v of report.violations) counts[v.impact] = (counts[v.impact] || 0) + v.nodeTotal;
   const impactColor = { critical: "#d32f2f", serious: "#e65100", moderate: "#f9a825", minor: "#616161" };
 
-  const sections = report.violations.map((v) => `
-    <section style="border:1px solid #ddd;border-left:5px solid ${impactColor[v.impact]};border-radius:6px;margin:14px 0;padding:12px 16px">
+  const impactOrder = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+  const sortedRules = [...report.violations].sort((a, b) => impactOrder[a.impact] - impactOrder[b.impact]);
+  const ruleIndex = sortedRules.length < 2 ? "" : `
+  <h2 style="font-size:16px;margin-top:20px">Rule summary</h2>
+  <table style="border-collapse:collapse;width:100%;font-size:13px">
+    <tr><th style="text-align:left;padding:3px 10px">Rule</th><th style="text-align:left;padding:3px 10px">Impact</th><th style="text-align:left;padding:3px 10px">Elements</th></tr>
+    ${sortedRules.map((v) => `
+    <tr>
+      <td style="padding:3px 10px;border-bottom:1px solid #eee"><a href="#rule-${escHtml(v.id)}">${escHtml(v.help)}</a></td>
+      <td style="padding:3px 10px;border-bottom:1px solid #eee;font-weight:700;color:${impactColor[v.impact]}">${v.impact}</td>
+      <td style="padding:3px 10px;border-bottom:1px solid #eee">${v.nodeTotal}</td>
+    </tr>`).join("")}
+  </table>`;
+  const shotHtml = shot ? `
+  <h2 style="font-size:16px;margin-top:20px">${escHtml(dt("scanShotNote"))}</h2>
+  <img src="${shot}" style="max-width:100%;border:1px solid #ddd;border-radius:6px">` : "";
+
+  const sections = sortedRules.map((v) => `
+    <section id="rule-${escHtml(v.id)}" style="border:1px solid #ddd;border-left:5px solid ${impactColor[v.impact]};border-radius:6px;margin:14px 0;padding:12px 16px">
       <h2 style="margin:0 0 4px;font-size:16px">${escHtml(v.help)}
         <small style="color:${impactColor[v.impact]};text-transform:uppercase">${v.impact}</small>
         <small style="color:#888">— ${v.nodeTotal} element(s)</small></h2>
@@ -1303,6 +1346,7 @@ function toHtml(report) {
         const fix = A11yFixes.suggestFix(v.id, n, settings.framework || "html");
         return `
         <div style="border-top:1px solid #eee;padding:8px 0">
+          <div style="font-size:12px;color:#555;margin-bottom:3px">Selector: <code style="background:#eef2f6;border-radius:3px;padding:0 4px">${escHtml(n.target.join(" "))}</code></div>
           <code style="display:block;background:#f6f6f6;padding:6px 8px;border-radius:4px;white-space:pre-wrap;word-break:break-all">${escHtml((n.pageLabel ? "[" + n.pageLabel + "] " : "") + n.html)}</code>
           <div style="color:#777;font-size:13px;white-space:pre-wrap;margin-top:4px">${escHtml(n.failureSummary)}</div>
           ${fix ? `
@@ -1329,6 +1373,8 @@ function toHtml(report) {
     <b style="color:#616161">${counts.minor} minor</b> ·
     <b style="color:#2e7d32">${report.passes} checks passed</b>
   </p>
+  ${shotHtml}
+  ${ruleIndex}
   ${sections || "<p>🎉 No violations found by automated checks.</p>"}
   ${manualSectionHtml()}
   ${dlsSectionHtml()}
@@ -1726,7 +1772,9 @@ const DLS_STR = {
     exportHtml: "⬇ HTML", exportPdf: "⬇ PDF",
     highlightGaps: "◉ Highlight gaps",
     affected: "Affected elements:",
+    fixLabel: "Suggested fix:",
     screenshotNote: "Viewport screenshot with DLS gaps outlined (gold dashed):",
+    scanShotNote: "Viewport screenshot with violations outlined (color-coded by severity):",
     gapsShown: (n) => `${n} DLS gap(s) outlined on the page (gold dashed) — ✕ Clear highlights removes them.`,
     reportTitle: "UAE Design System conformance report",
   },
@@ -1763,7 +1811,9 @@ const DLS_STR = {
     exportHtml: "⬇ HTML", exportPdf: "⬇ PDF",
     highlightGaps: "◉ تظليل الفجوات",
     affected: "العناصر المتأثرة:",
+    fixLabel: "الإصلاح المقترح:",
     screenshotNote: "لقطة شاشة لمنطقة العرض مع تحديد الفجوات (إطار ذهبي متقطع):",
+    scanShotNote: "لقطة شاشة لمنطقة العرض مع تحديد المخالفات (ملونة حسب الخطورة):",
     gapsShown: (n) => `تم تحديد ${n} فجوة على الصفحة (إطار ذهبي متقطع) — «✕ مسح التظليل» يزيلها.`,
     reportTitle: "تقرير مطابقة نظام التصميم الإماراتي",
   },
@@ -1791,7 +1841,7 @@ async function runDlsCheck() {
   }
 }
 
-function dlsRow(verdict, label, detailNodes, elements) {
+function dlsRow(verdict, label, detailNodes, elements, fix, doc) {
   const row = document.createElement("div");
   row.className = "dls-row";
   const v = document.createElement("span");
@@ -1800,6 +1850,15 @@ function dlsRow(verdict, label, detailNodes, elements) {
   const l = document.createElement("span");
   l.className = "dls-label";
   l.textContent = label;
+  if (doc) {
+    const a = document.createElement("a");
+    a.href = doc;
+    a.target = "_blank";
+    a.textContent = " ↗";
+    a.title = doc;
+    a.style.textDecoration = "none";
+    l.appendChild(a);
+  }
   const d = document.createElement("span");
   d.className = "dls-detail";
   for (const n of detailNodes) d.append(n);
@@ -1822,6 +1881,17 @@ function dlsRow(verdict, label, detailNodes, elements) {
     }
     d.appendChild(list);
   }
+  if (fix) {
+    const fx = document.createElement("div");
+    fx.className = "dls-fix";
+    const cap = document.createElement("span");
+    cap.textContent = dt("fixLabel");
+    cap.style.fontWeight = "600";
+    const code = document.createElement("code");
+    code.textContent = fix;
+    fx.append(cap, code);
+    d.appendChild(fx);
+  }
   row.append(v, l, d);
   return row;
 }
@@ -1831,6 +1901,26 @@ function swatch(hex) {
   s.className = "dls-swatch";
   s.style.background = hex;
   return s;
+}
+
+const DLS_DOCS = {
+  adoption: "https://designsystem.gov.ae/docs/installation",
+  typography: "https://designsystem.gov.ae/guidelines/typography",
+  weights: "https://designsystem.gov.ae/guidelines/typography",
+  colors: "https://designsystem.gov.ae/insights/how-to-use-design-tokens-with-the-uae-design-system",
+  bilingual: "https://designsystem.gov.ae/guidelines",
+  viewport: "https://designsystem.gov.ae/guidelines",
+  components: "https://designsystem.gov.ae/docs/components",
+  catalog: "https://designsystem.gov.ae/docs/components",
+  buttons: "https://designsystem.gov.ae/docs/components/button",
+  wcag: "https://www.w3.org/WAI/WCAG22/quickref/",
+};
+
+function dlsDocFor(label) {
+  for (const key of Object.keys(DLS_DOCS)) {
+    if (dt(key) === label) return DLS_DOCS[key];
+  }
+  return null;
 }
 
 function renderDlsReport(r) {
@@ -1848,7 +1938,8 @@ function renderDlsReport(r) {
     code.textContent = r.aegovClasses.slice(0, 4).map(([c]) => c).join(", ");
     rows.push(["pass", dt("adoption"), [dt("adopted", r.aegovCount, r.aegovClasses.length), code]]);
   } else {
-    rows.push(["fail", dt("adoption"), [dt("notAdopted")]]);
+    rows.push(["fail", dt("adoption"), [dt("notAdopted")], null,
+      'npm i @aegov/design-system\n\n/* app.css */\n@import "tailwindcss";\n@plugin "@aegov/design-system";']);
   }
 
   // 2. typography
@@ -1858,14 +1949,19 @@ function renderDlsReport(r) {
   } else {
     const code = document.createElement("code");
     code.textContent = [r.bodyFont.split(",")[0], ...r.headingFonts].slice(0, 3).join(", ");
+    const fontFix = r.expectedFonts.body[0] === "roboto"
+      ? 'body { font-family: "Roboto", sans-serif; }\nh1, h2, h3, h4 { font-family: "Inter", sans-serif; }'
+      : 'body { font-family: "Noto Kufi Arabic", sans-serif; }\nh1, h2, h3, h4 { font-family: "Alexandria", sans-serif; }';
     rows.push(["fail", dt("typography"), [dt("fontsBad", expStr), code],
-      (r.fontOffenders || []).map((o) => ({ sel: o.sel, info: `<${o.tag}> "${o.text}" — ${o.font}` }))]);
+      (r.fontOffenders || []).map((o) => ({ sel: o.sel, info: `<${o.tag}> "${o.text}" — ${o.font}` })),
+      fontFix + "\n/* Fonts are on Google Fonts — or use the DLS utilities font-body / font-heading */"]);
   }
 
   // 3. weights
   const wN = r.fontWeights.length;
   rows.push([wN <= 5 ? "pass" : "warn", dt("weights"),
-    [wN <= 5 ? dt("weightsOk", wN) : dt("weightsBad", wN)]]);
+    [wN <= 5 ? dt("weightsOk", wN) : dt("weightsBad", wN)], null,
+    wN <= 5 ? null : "/* Consolidate to the 5 DLS weights, e.g. 300 / 400 / 500 / 700 / 800.\n   Found: " + r.fontWeights.join(", ") + " */"]);
 
   // 4. colors
   if (r.colorsSampled > 0) {
@@ -1881,31 +1977,37 @@ function renderDlsReport(r) {
         detail.push(code, " ");
       }
       rows.push([pct >= 40 ? "warn" : "fail", dt("colors"), detail,
-        r.offenders.flatMap((o) => (o.sels || []).slice(0, 2).map((sel) => ({ sel, info: `${o.hex} → ${o.nearestToken}` })))]);
+        r.offenders.flatMap((o) => (o.sels || []).slice(0, 2).map((sel) => ({ sel, info: `${o.hex} → ${o.nearestToken}` }))),
+        r.offenders.slice(0, 3).map((o) =>
+          `color: var(--color-${o.nearestToken}); /* was ${o.hex} — token ${o.nearestHex} */`).join("\n")]);
     }
   }
 
   // 5. bilingual / RTL
+  const switcherFix = '<a href="/ar" hreflang="ar" lang="ar">العربية</a> / <a href="/en" hreflang="en">English</a>';
   if (!r.lang) {
-    rows.push(["fail", dt("bilingual"), [dt("langMissing")]]);
+    rows.push(["fail", dt("bilingual"), [dt("langMissing")], null,
+      '<html lang="en">  <!-- or: -->  <html lang="ar" dir="rtl">']);
   } else if (r.lang.toLowerCase().startsWith("ar") && r.dir !== "rtl") {
-    rows.push(["fail", dt("bilingual"), [dt("rtlBad")]]);
+    rows.push(["fail", dt("bilingual"), [dt("rtlBad")], null, '<html lang="ar" dir="rtl">']);
   } else if (!r.langSwitcher) {
-    rows.push(["warn", dt("bilingual"), [dt("bilingualOk", r.lang) + ". " + dt("noSwitcher")]]);
+    rows.push(["warn", dt("bilingual"), [dt("bilingualOk", r.lang) + ". " + dt("noSwitcher")], null, switcherFix]);
   } else {
     rows.push(["pass", dt("bilingual"), [dt("bilingualOk", r.lang) + dt("switcherFound")]]);
   }
 
   // 6. viewport
   rows.push([r.viewport ? "pass" : "fail", dt("viewport"),
-    [r.viewport ? dt("viewportOk") : dt("viewportBad")]]);
+    [r.viewport ? dt("viewportOk") : dt("viewportBad")], null,
+    r.viewport ? null : '<meta name="viewport" content="width=device-width, initial-scale=1">']);
 
   // 7. components (informational when adopted)
   if (r.aegovCount > 0 && r.controls > 0) {
     const ratio = r.controlsWithAegov / r.controls;
     rows.push([ratio >= 0.8 ? "pass" : "warn", dt("components"),
       [dt("componentsInfo", r.controlsWithAegov, r.controls)],
-      (r.rawControls || []).map((o) => ({ sel: o.sel, info: o.tag }))]);
+      (r.rawControls || []).map((o) => ({ sel: o.sel, info: o.tag })),
+      ratio >= 0.8 ? null : '<button class="aegov-btn">…</button>\n<div class="aegov-form-control"><label for="x">…</label><input id="x"></div>']);
   }
 
   // 7b. component catalog + button sizing (when adopted)
@@ -1918,7 +2020,9 @@ function renderDlsReport(r) {
     if (r.buttons > 0) {
       rows.push([r.buttonsOffSpec.length === 0 ? "pass" : "warn", dt("buttons"),
         [r.buttonsOffSpec.length === 0 ? dt("btnOk", r.buttons) : dt("btnBad", r.buttons, r.buttonsOffSpec)],
-        r.buttonsOffSpec.map((o) => ({ sel: o.sel, info: `"${o.text}" — ${o.height}px` }))]);
+        r.buttonsOffSpec.map((o) => ({ sel: o.sel, info: `"${o.text}" — ${o.height}px` })),
+        r.buttonsOffSpec.length === 0 ? null :
+          '/* Remove custom heights; use the size variants */\n<button class="aegov-btn btn-xs|btn-sm|btn-base|btn-lg">…</button>']);
     }
   }
 
@@ -1931,9 +2035,9 @@ function renderDlsReport(r) {
   }
 
   let passed = 0;
-  for (const [verdict, label, detail, elements] of rows) {
+  for (const [verdict, label, detail, elements, fix] of rows) {
     if (verdict === "pass") passed++;
-    dlsReportEl.appendChild(dlsRow(verdict, label, detail, elements));
+    dlsReportEl.appendChild(dlsRow(verdict, label, detail, elements, fix, dlsDocFor(label)));
   }
   const score = document.createElement("div");
   score.className = "dls-row";
@@ -1951,7 +2055,7 @@ function renderDlsReport(r) {
       let detailText = detailEl ? detailEl.textContent : "";
       const elsEl = detailEl && detailEl.querySelector(".dls-els");
       if (elsEl) detailText = detailText.replace(elsEl.textContent, "");
-      return { verdict: rw[0], label: rw[1], detail: detailText, elements: rw[3] || [] };
+      return { verdict: rw[0], label: rw[1], detail: detailText, elements: rw[3] || [], fix: rw[4] || null, doc: dlsDocFor(rw[1]) };
     }),
   };
 
@@ -1986,11 +2090,14 @@ function dlsSectionHtml() {
   const rows = lastDlsExport.rows.map((r) => `
     <tr>
       <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:700;white-space:nowrap;vertical-align:top;color:${color[r.verdict]}">${mark[r.verdict]}</td>
-      <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap;vertical-align:top">${escHtml(r.label)}</td>
+      <td style="padding:5px 10px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap;vertical-align:top">${
+        r.doc ? `<a href="${escHtml(r.doc)}" style="color:inherit">${escHtml(r.label)} ↗</a>` : escHtml(r.label)}</td>
       <td style="padding:5px 10px;border-bottom:1px solid #eee">${escHtml(r.detail)}${
         r.elements && r.elements.length ? `<div style="margin-top:4px">${r.elements.map((e) =>
           `<div><code style="background:#f4f0e8;border-radius:3px;padding:0 4px;font-size:12px">${escHtml(e.sel)}</code> <span style="color:#777">${escHtml(e.info)}</span></div>`).join("")}</div>` : ""
-      }</td>
+      }${r.fix ? `<div style="border-left:4px solid #2e7d32;background:#f2f8f2;border-radius:4px;padding:5px 8px;margin-top:5px">
+          <div style="color:#2e7d32;font-weight:700;font-size:11px">${escHtml(dt("fixLabel"))}</div>
+          <code style="display:block;white-space:pre-wrap;word-break:break-all;font-size:12px">${escHtml(r.fix)}</code></div>` : ""}</td>
     </tr>`).join("");
   return `
   <h2 style="font-size:18px;margin-top:30px;border-top:4px solid #b68a35;padding-top:12px">🇦🇪 ${escHtml(dt("reportTitle"))}

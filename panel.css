@@ -420,3 +420,19 @@ details.violation > summary::marker { content: ""; }
   padding: 0 4px;
 }
 .dls-els code:hover { outline: 1px solid #b68a35; }
+
+.dls-fix {
+  margin-top: 4px;
+  border-left: 3px solid var(--passes);
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--passes) 8%, transparent);
+  font-size: 11px;
+}
+.dls-fix code {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: none;
+  padding: 2px 0 0;
+}

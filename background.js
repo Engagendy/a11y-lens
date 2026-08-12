@@ -174,6 +174,57 @@ function applyFixInPage(selector, patch) {
   return true;
 }
 
+function applyFixAllInPage(items) {
+  window.__a11yLensMuted = true;
+  setTimeout(() => { window.__a11yLensMuted = false; }, 2000);
+  window.__a11yLensUndo = window.__a11yLensUndo || {};
+  let applied = 0;
+  for (const { selector, patch } of items) {
+    let el = null;
+    try { el = document.querySelector(selector); } catch (_) {}
+    if (!el) continue;
+    if (!window.__a11yLensUndo[selector]) {
+      const undo = { attrs: {}, styles: {} };
+      for (const name of Object.keys(patch.attrs || {})) {
+        undo.attrs[name] = el.hasAttribute(name) ? el.getAttribute(name) : null;
+      }
+      for (const prop of Object.keys(patch.styles || {})) {
+        undo.styles[prop] = el.style.getPropertyValue(prop);
+      }
+      window.__a11yLensUndo[selector] = undo;
+    }
+    for (const [name, value] of Object.entries(patch.attrs || {})) el.setAttribute(name, value);
+    for (const [prop, value] of Object.entries(patch.styles || {})) {
+      el.style.setProperty(prop, value, "important");
+    }
+    applied++;
+  }
+  return applied;
+}
+
+function undoAllInPage() {
+  window.__a11yLensMuted = true;
+  setTimeout(() => { window.__a11yLensMuted = false; }, 2000);
+  const undoMap = window.__a11yLensUndo || {};
+  let restored = 0;
+  for (const [selector, undo] of Object.entries(undoMap)) {
+    let el = null;
+    try { el = document.querySelector(selector); } catch (_) {}
+    if (!el) continue;
+    for (const [name, value] of Object.entries(undo.attrs)) {
+      if (value === null) el.removeAttribute(name);
+      else el.setAttribute(name, value);
+    }
+    for (const [prop, value] of Object.entries(undo.styles)) {
+      if (value === "") el.style.removeProperty(prop);
+      else el.style.setProperty(prop, value, "important");
+    }
+    restored++;
+  }
+  window.__a11yLensUndo = {};
+  return restored;
+}
+
 function undoFixInPage(selector) {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
@@ -367,6 +418,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { result: await exec(tabId, applyFixInPage, [msg.selector, msg.patch]) };
       case "undoFix":
         return { result: await exec(tabId, undoFixInPage, [msg.selector]) };
+      case "applyFixAll":
+        return { result: await exec(tabId, applyFixAllInPage, [msg.items]) };
+      case "undoAll":
+        return { result: await exec(tabId, undoAllInPage) };
       case "aiFix": {
         const { aiKey, aiModel } = await chrome.storage.local.get(["aiKey", "aiModel"]);
         if (!aiKey) throw new Error("No API key set — add one in Options");

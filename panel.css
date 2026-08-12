@@ -228,6 +228,8 @@ button.export { padding: 2px 8px; font-size: 11px; }
 .verdict-btn.on-fail:hover { background: #e5493f; }
 .verdict-btn.on-na:hover { background: #7a7a7a; }
 #flowBtn.recording:hover { background: #e5493f; }
+#autofixBtn.on { background: var(--passes); color: #fff; border-color: transparent; }
+#autofixBtn.on:hover { background: #3b9c41; }
 .wizard-progress { opacity: 0.6; font-size: 11px; margin: 6px 0 2px; }
 .wizard-question { font-size: 13px; font-weight: 600; margin: 6px 0 10px; }
 .wiz-yes { background: var(--passes); color: #fff; border-color: transparent; }

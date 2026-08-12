@@ -76,6 +76,7 @@ const levelSelect = document.getElementById("levelSelect");
 const bestPractice = document.getElementById("bestPractice");
 const exportGroup = document.getElementById("exportGroup");
 const highlightAllBtn = document.getElementById("highlightAllBtn");
+const autofixBtn = document.getElementById("autofixBtn");
 const diffEl = document.getElementById("diff");
 const staleEl = document.getElementById("stale");
 const contrastToggle = document.getElementById("contrastToggle");
@@ -212,6 +213,7 @@ async function runScan() {
     render(lastReport);
     exportGroup.hidden = false;
     highlightAllBtn.hidden = false;
+    updateAutofixButton();
     const frameNote = result.frames ? ` (incl. ${result.frames} iframe(s))` : "";
     statusEl.textContent = `Done — ${result.violations.length} rule(s) violated${frameNote}`;
     startStaleWatch();
@@ -484,6 +486,50 @@ function inspectElement(selector) {
   );
 }
 
+/* ---------------- auto-fix page ---------------- */
+
+let autofixApplied = false;
+
+function fixableItems() {
+  if (!lastReport) return [];
+  const items = [];
+  for (const v of lastReport.violations) {
+    for (const n of v.nodes) {
+      if (n.target.length !== 1) continue;
+      const patch = A11yFixes.previewPatch(v.id, n);
+      if (patch) items.push({ selector: n.target[0], patch });
+    }
+  }
+  return items;
+}
+
+function updateAutofixButton() {
+  autofixApplied = false;
+  autofixBtn.classList.remove("on");
+  const n = fixableItems().length;
+  autofixBtn.hidden = n === 0;
+  autofixBtn.textContent = `⚡ Auto-fix page (${n})`;
+}
+
+autofixBtn.addEventListener("click", async () => {
+  try {
+    if (!autofixApplied) {
+      const items = fixableItems();
+      const applied = await bg("applyFixAll", { items });
+      autofixApplied = true;
+      autofixBtn.classList.add("on");
+      autofixBtn.textContent = `↩ Undo all (${applied})`;
+      statusEl.textContent = `⚡ Applied ${applied} live fix(es) — re-scan to verify, then copy the snippets into your source. Reload discards them.`;
+    } else {
+      const restored = await bg("undoAll");
+      updateAutofixButton();
+      statusEl.textContent = `Restored ${restored} element(s) to their original state.`;
+    }
+  } catch (err) {
+    statusEl.textContent = "Auto-fix failed: " + (err?.message || err);
+  }
+});
+
 /* ---------------- stale watch ---------------- */
 
 let stalePoll = null;
@@ -591,6 +637,7 @@ function stopFlow() {
   render(lastReport);
   exportGroup.hidden = false;
   highlightAllBtn.hidden = true;
+  autofixBtn.hidden = true;
   statusEl.textContent = `Flow done — ${flowMap.size} unique finding(s) across ${pages.size} page/state(s)`;
 }
 

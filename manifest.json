@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "A11y Lens",
   "description": "Accessibility checker powered by axe-core. Scan any page for WCAG violations and highlight offending elements.",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "minimum_chrome_version": "102",
   "permissions": [
     "scripting",

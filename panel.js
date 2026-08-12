@@ -35,7 +35,13 @@ const STR = {
     flow: "⏺ Record flow", stopFlow: "■ Stop flow",
     clear: "✕ Clear highlights", contrast: "◐ Contrast",
     highlightAll: "◉ Highlight all",
-    tabAuto: "Automated", tabManual: "🧭 Manual tests", tabHelp: "❓ Help",
+    tabAuto: "Automated", tabDls: "🇦🇪 DLS", tabManual: "🧭 Manual tests", tabHelp: "❓ Help",
+    runDls: "🇦🇪 Run DLS check",
+    modeA11y: "Accessibility", modeBoth: "Accessibility + DLS", modeDls: "DLS only",
+    reset: "↺ Reset", resetDone: "Cleared — ready for a fresh audit.",
+    dlsInOtherTab: (p, t) => ` · DLS: ${p}/${t} — see the 🇦🇪 tab`,
+    dlsIntro: "Audit this page against the UAE Design System (AEGov DLS v3 — mandated for federal government entities).",
+    findings: "🔎 Findings", historySec: "📈 History",
     scanning: "Scanning…",
     exportLabel: "Export:",
     bestPractices: "best practices",
@@ -56,7 +62,13 @@ const STR = {
     flow: "⏺ تسجيل مسار", stopFlow: "■ إيقاف التسجيل",
     clear: "✕ مسح التظليل", contrast: "◐ التباين",
     highlightAll: "◉ تظليل الكل",
-    tabAuto: "الفحص الآلي", tabManual: "🧭 اختبارات يدوية", tabHelp: "❓ مساعدة",
+    tabAuto: "الفحص الآلي", tabDls: "🇦🇪 نظام التصميم", tabManual: "🧭 اختبارات يدوية", tabHelp: "❓ مساعدة",
+    runDls: "🇦🇪 تشغيل فحص نظام التصميم",
+    modeA11y: "إمكانية الوصول", modeBoth: "إمكانية الوصول + نظام التصميم", modeDls: "نظام التصميم فقط",
+    reset: "↺ إعادة تعيين", resetDone: "تم المسح — جاهز لتدقيق جديد.",
+    dlsInOtherTab: (p, t) => ` · نظام التصميم: ${p}/${t} — انظر تبويب 🇦🇪`,
+    dlsIntro: "دقق هذه الصفحة وفق نظام التصميم الإماراتي (AEGov DLS v3 — الإلزامي للجهات الاتحادية).",
+    findings: "🔎 النتائج", historySec: "📈 السجل",
     scanning: "جارٍ الفحص…",
     exportLabel: "تصدير:",
     bestPractices: "أفضل الممارسات",
@@ -75,7 +87,10 @@ const STR = {
 };
 
 let lang = "en";
-const t = (key) => (STR[lang] && STR[lang][key]) || STR.en[key] || key;
+const t = (key, ...args) => {
+  const v = (STR[lang] && STR[lang][key]) ?? STR.en[key] ?? key;
+  return typeof v === "function" ? v(...args) : v;
+};
 
 /* ---------------- element refs ---------------- */
 
@@ -99,6 +114,10 @@ const manualView = document.getElementById("manual");
 const manualListEl = document.getElementById("manualList");
 const manualProgressEl = document.getElementById("manualProgress");
 const helpView = document.getElementById("help");
+const autoView = document.getElementById("auto");
+const modeSelect = document.getElementById("modeSelect");
+const resetBtn = document.getElementById("resetBtn");
+const dlsView = document.getElementById("dlsView");
 const helpListEl = document.getElementById("helpList");
 
 const LEVEL_TAGS = {
@@ -123,6 +142,7 @@ async function init() {
     document.documentElement.lang = "ar";
   }
   levelSelect.value = settings.level || "wcag22aa";
+  modeSelect.value = settings.mode || "a11y";
   bestPractice.checked = !!settings.bestPractice;
   applyStrings();
 }
@@ -137,19 +157,71 @@ function applyStrings() {
   const mBtn = tabsNav.querySelector("[data-view='manual']");
   mBtn.textContent = t("tabManual") + " ";
   mBtn.appendChild(manualProgressEl);
+  tabsNav.querySelector("[data-view='dls']").textContent = t("tabDls");
   tabsNav.querySelector("[data-view='help']").textContent = t("tabHelp");
+  document.getElementById("dlsBtn").textContent = t("runDls");
+  document.getElementById("dlsIntro").textContent = t("dlsIntro");
+  document.getElementById("resultsSummaryLabel").textContent = t("findings");
+  document.querySelector("#historySection > .section-summary").textContent = t("historySec");
   document.querySelector("#results .empty").textContent = t("emptyResults");
   staleEl.textContent = t("stale");
   document.getElementById("pickFg").textContent = t("pickFg");
   document.getElementById("pickBg").textContent = t("pickBg");
   document.querySelector("label.check").lastChild.textContent = " " + t("bestPractices");
+  resetBtn.textContent = t("reset");
+  const modeOpts = modeSelect.querySelectorAll("option");
+  modeOpts[0].textContent = t("modeA11y");
+  modeOpts[1].textContent = t("modeBoth");
+  modeOpts[2].textContent = t("modeDls");
 }
 
 init();
 
 /* ---------------- event wiring ---------------- */
 
-scanBtn.addEventListener("click", runScan);
+scanBtn.addEventListener("click", runScanFlow);
+modeSelect.addEventListener("change", () => bg("settingsSet", { value: { mode: modeSelect.value } }).catch(() => {}));
+resetBtn.addEventListener("click", resetAll);
+
+// One Scan button drives the selected audit mode; reports stay unified in exports.
+async function runScanFlow() {
+  const mode = modeSelect.value;
+  if (mode === "dls") {
+    showView("dls");
+    await runDlsCheck();
+    return;
+  }
+  await runScan();
+  if (mode === "both") {
+    const scanStatus = statusEl.textContent;
+    await runDlsCheck();
+    statusEl.textContent = scanStatus + (lastDlsExport
+      ? t("dlsInOtherTab", lastDlsExport.score.passed, lastDlsExport.score.total) : "");
+  }
+}
+
+function resetAll() {
+  clearHighlights();
+  lastReport = null;
+  lastDlsExport = null;
+  summaryEl.hidden = true;
+  document.getElementById("historySection").hidden = true;
+  staleEl.hidden = true;
+  clearInterval(stalePoll);
+  exportGroup.hidden = true;
+  highlightAllBtn.hidden = true;
+  autofixBtn.hidden = true;
+  dlsReportEl.hidden = true;
+  dlsReportEl.textContent = "";
+  diffEl.textContent = "";
+  resultsEl.textContent = "";
+  const p = document.createElement("p");
+  p.className = "empty";
+  p.textContent = t("emptyResults");
+  resultsEl.appendChild(p);
+  showView("auto");
+  statusEl.textContent = t("resetDone");
+}
 clearBtn.addEventListener("click", clearHighlights);
 highlightAllBtn.addEventListener("click", highlightAll);
 flowBtn.addEventListener("click", () => (flowRecording ? stopFlow() : startFlow()));
@@ -169,8 +241,9 @@ document.addEventListener("keydown", (e) => {
   else if (k === "x") clearHighlights();
   else if (k === "c") contrastToggle.click();
   else if (k === "1") showView("auto");
-  else if (k === "2") showView("manual");
-  else if (k === "3") showView("help");
+  else if (k === "2") showView("dls");
+  else if (k === "3") showView("manual");
+  else if (k === "4") showView("help");
 });
 
 /* ---------------- tabs ---------------- */
@@ -184,7 +257,8 @@ function showView(view) {
   for (const b of tabsNav.querySelectorAll("button[data-view]")) {
     b.classList.toggle("active", b.dataset.view === view);
   }
-  resultsEl.hidden = view !== "auto";
+  autoView.hidden = view !== "auto";
+  dlsView.hidden = view !== "dls";
   manualView.hidden = view !== "manual";
   helpView.hidden = view !== "help";
   if (view === "manual") loadManual();
@@ -484,11 +558,11 @@ async function applyHistoryDiff(report) {
 const IMPACT_COLORS = { critical: "#d32f2f", serious: "#e65100", moderate: "#f9a825", minor: "#9e9e9e" };
 
 function drawHistoryChart(runs) {
-  const wrap = document.getElementById("historyWrap");
+  const wrap = document.getElementById("historySection");
   if (!runs || runs.length < 2) { wrap.hidden = true; return; }
   wrap.hidden = false;
   const canvas = document.getElementById("historyChart");
-  const W = (canvas.width = canvas.parentElement.clientWidth - 20 || 600);
+  const W = (canvas.width = Math.max(320, (autoView.clientWidth || 620) - 40));
   const H = canvas.height;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, W, H);
@@ -1203,7 +1277,7 @@ async function exportReport(format) {
   const base = "a11y-lens-" + safeName(lastReport.url) + "-" +
     lastReport.scannedAt.slice(0, 19).replace(/[:T]/g, "-");
   if (format === "json") {
-    const payload = { ...withSuggestions(lastReport), manualTests: manualResultsForExport() };
+    const payload = { ...withSuggestions(lastReport), manualTests: manualResultsForExport(), dls: lastDlsExport };
     download(base + ".json", "application/json", JSON.stringify(payload, null, 2));
   } else if (format === "csv") {
     download(base + ".csv", "text/csv", toCsv(lastReport));

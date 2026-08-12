@@ -436,3 +436,23 @@ details.violation > summary::marker { content: ""; }
   background: none;
   padding: 2px 0 0;
 }
+
+main#auto { padding-bottom: 30px; }
+.section-summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  user-select: none;
+}
+.section-summary::marker { content: ""; }
+.section-summary::before { content: "▸ "; opacity: 0.6; }
+details[open] > .section-summary::before { content: "▾ "; }
+#dlsView { padding: 12px; }
+#dlsView > #dlsBtn { background: #b68a35; color: #fff; border-color: transparent; }
+#dlsView > #dlsBtn:hover { background: #c99c47; }
+#dlsReport { margin: 12px 0 0; }
+
+/* display:flex on a section would otherwise defeat the hidden attribute */
+[hidden] { display: none !important; }

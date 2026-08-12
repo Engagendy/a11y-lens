@@ -6,6 +6,11 @@
   </head>
   <body>
     <header>
+      <select id="modeSelect" title="What to audit">
+        <option value="a11y" selected>Accessibility</option>
+        <option value="both">Accessibility + DLS</option>
+        <option value="dls">DLS only</option>
+      </select>
       <button id="scanBtn">▶ Scan this page</button>
       <button id="flowBtn" title="Record a user flow: navigate and interact while A11y Lens scans every step and aggregates unique findings">⏺ Record flow</button>
       <button id="helpBtn" class="help-btn" title="Help — what every feature does, with examples">?</button>
@@ -20,8 +25,8 @@
       <button id="highlightAllBtn" title="Outline every violating element, color-coded by severity" hidden>◉ Highlight all</button>
       <button id="autofixBtn" title="Apply every machine-fixable patch to the live page (temporary — reload restores the original; your source still needs the real edits)" hidden>⚡ Auto-fix page</button>
       <button id="clearBtn" title="Remove highlights from the page">✕ Clear highlights</button>
+      <button id="resetBtn" title="Clear highlights and all results — start fresh">↺ Reset</button>
       <button id="contrastToggle" title="Color contrast checker">◐ Contrast</button>
-      <button id="dlsBtn" title="Check conformance with the UAE Design System (AEGov DLS) — designsystem.gov.ae">🇦🇪 DLS</button>
       <span id="status"></span>
       <span class="spacer"></span>
       <span id="exportGroup" hidden>
@@ -50,10 +55,12 @@
 
     <nav id="tabs">
       <button data-view="auto" class="active">Automated</button>
+      <button data-view="dls">🇦🇪 DLS</button>
       <button data-view="manual">🧭 Manual tests <span id="manualProgress"></span></button>
       <button data-view="help">❓ Help</button>
     </nav>
 
+    <main id="auto">
     <div id="summary" hidden>
       <span class="pill critical" id="countCritical">0 critical</span>
       <span class="pill serious" id="countSerious">0 serious</span>
@@ -63,15 +70,26 @@
       <span id="diff" class="diff"></span>
     </div>
 
-    <div id="historyWrap" hidden>
-      <canvas id="historyChart" height="72"></canvas>
-      <div id="historyLegend"></div>
-    </div>
+    <details id="historySection" hidden open>
+      <summary class="section-summary">📈 History</summary>
+      <div id="historyWrap">
+        <canvas id="historyChart" height="72"></canvas>
+        <div id="historyLegend"></div>
+      </div>
+    </details>
 
-    <div id="dlsReport" hidden></div>
+    <details id="resultsSection" open>
+      <summary class="section-summary" id="resultsSummaryLabel">🔎 Findings</summary>
+      <div id="results">
+        <p class="empty">Click <b>Scan this page</b> to run an axe-core audit on the inspected page.</p>
+      </div>
+    </details>
+    </main>
 
-    <main id="results">
-      <p class="empty">Click <b>Scan this page</b> to run an axe-core audit on the inspected page.</p>
+    <main id="dlsView" hidden>
+      <p class="empty" id="dlsIntro">Audit this page against the UAE Design System (AEGov DLS v3 — mandated for federal government entities).</p>
+      <button id="dlsBtn">🇦🇪 Run DLS check</button>
+      <div id="dlsReport" hidden></div>
     </main>
 
     <main id="manual" hidden>

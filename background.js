@@ -4,6 +4,10 @@
 
 // Works on Chromium (chrome.*) and Firefox (browser.*, promise-based).
 const EXT = globalThis.browser || globalThis.chrome;
+// UAE Design System (AEGov DLS) tokens, generated from @aegov/design-system@3.0.7
+// (OKLCH tokens converted to sRGB hex). Do not edit by hand.
+const DLS_DATA = {"version":"3.0.7","colors":{"#f9f7ed":"aegold-50","#f2eccf":"aegold-100","#e6d7a2":"aegold-200","#d7bc6d":"aegold-300","#cba344":"aegold-400","#b68a35":"aegold-500","#92722a":"aegold-600","#7c5e24":"aegold-700","#6c4527":"aegold-800","#5d3b26":"aegold-900","#361e12":"aegold-950","#fef2f2":"aered-50","#fde4e3":"aered-100","#fdcdcb":"aered-200","#faaaa7":"aered-300","#f47a75":"aered-400","#ea4f49":"aered-500","#d83731":"aered-600","#b52520":"aered-700","#95231f":"aered-800","#7c2320":"aered-900","#430e0c":"aered-950","#f3faf4":"aegreen-50","#e4f4e7":"aegreen-100","#cae8cf":"aegreen-200","#a0d5ab":"aegreen-300","#6fb97f":"aegreen-400","#4a9d5c":"aegreen-500","#3f8e50":"aegreen-600","#2f663c":"aegreen-700","#2a5133":"aegreen-800","#24432b":"aegreen-900","#0f2415":"aegreen-950","#f7f7f7":"aeblack-50","#e1e3e5":"aeblack-100","#c3c6cb":"aeblack-200","#9ea2a9":"aeblack-300","#797e86":"aeblack-400","#5f646d":"aeblack-500","#4b4f58":"aeblack-600","#3e4046":"aeblack-700","#232528":"aeblack-800","#1b1d21":"aeblack-900","#0e0f12":"aeblack-950","#ffffff":"whitely-50","#fcfcfc":"whitely-100","#f2f2f2":"whitely-300","#ededed":"whitely-400","#e8e8e8":"whitely-500","#fffbeb":"camel-50","#fdf4c8":"camel-100","#fbe68c":"camel-200","#fad44f":"camel-300","#f8c027":"camel-400","#f29f10":"camel-500","#d67907":"camel-600","#b2550a":"camel-700","#904111":"camel-800","#773610":"camel-900","#441b04":"camel-950","#f8fafc":"slate-50","#f1f5f9":"slate-100","#e2e8f0":"slate-200","#cbd5e1":"slate-300","#94a3b8":"slate-400","#64748b":"slate-500","#475569":"slate-600","#334155":"slate-700","#1e293b":"slate-800","#0f172a":"slate-900","#020617":"slate-950","#fdf4ff":"fuchsia-50","#fae8ff":"fuchsia-100","#f5d0fe":"fuchsia-200","#f0abfc":"fuchsia-300","#e879f9":"fuchsia-400","#d946ef":"fuchsia-500","#c026d3":"fuchsia-600","#a21caf":"fuchsia-700","#86198f":"fuchsia-800","#701a75":"fuchsia-900","#4a044e":"fuchsia-950","#e7f5ff":"techblue-50","#d3edff":"techblue-100","#b0dbff":"techblue-200","#81c1ff":"techblue-300","#4f98ff":"techblue-400","#296cff":"techblue-500","#043dff":"techblue-600","#003cff":"techblue-700","#002dc2":"techblue-800","#0b32a4":"techblue-900","#071c5f":"techblue-950","#effaff":"seablue-50","#def3ff":"seablue-100","#b6eaff":"seablue-200","#76dbff":"seablue-300","#2bcaff":"seablue-400","#00abeb":"seablue-500","#0190d4":"seablue-600","#0173ab":"seablue-700","#00608d":"seablue-800","#065074":"seablue-900","#04334d":"seablue-950","#fef5ee":"desert-50","#fce9d8":"desert-100","#f9cfaf":"desert-200","#f5ac7c":"desert-300","#ef8048":"desert-400","#eb5f24":"desert-500","#e54b1d":"desert-600","#b73417":"desert-700","#922b1a":"desert-800","#762518":"desert-900","#3f100b":"desert-950"},"fonts":{"en":{"body":["roboto"],"heading":["inter"]},"ar":{"body":["noto kufi arabic","notokufi"],"heading":["alexandria"]}}};
+
 /* ---------- functions injected into the inspected page ---------- */
 
 function runAxeInPage(runOnlyArg) {
@@ -523,6 +527,102 @@ const HELPERS = {
   altOverlay: helperAltOverlay,
 };
 
+function dlsCheckInPage(data) {
+  const out = {};
+  const lang = (document.documentElement.lang || "").toLowerCase();
+  const isAr = lang.startsWith("ar");
+  out.lang = document.documentElement.lang || null;
+  out.dir = document.documentElement.dir || "ltr";
+  out.viewport = !!document.querySelector('meta[name="viewport"]');
+  out.langSwitcher = !!(document.querySelector("[hreflang]") ||
+    [...document.querySelectorAll("a,button")].slice(0, 400).some((el) =>
+      /العربية|عربي|english/i.test(el.textContent.trim())));
+
+  // --- aegov- class adoption ---
+  const all = document.querySelectorAll("*");
+  const cap = Math.min(all.length, 6000);
+  const aegovClasses = new Map();
+  let aegovCount = 0;
+  for (let i = 0; i < cap; i++) {
+    for (const c of all[i].classList) {
+      if (c.startsWith("aegov-")) {
+        aegovCount++;
+        aegovClasses.set(c, (aegovClasses.get(c) || 0) + 1);
+      }
+    }
+  }
+  out.elementsScanned = cap;
+  out.aegovCount = aegovCount;
+  out.aegovClasses = [...aegovClasses.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+  // --- typography ---
+  const expected = data.fonts[isAr ? "ar" : "en"];
+  const fam = (el) => getComputedStyle(el).fontFamily.toLowerCase();
+  const hasAny = (stack, names) => names.some((n) => stack.includes(n));
+  out.bodyFont = getComputedStyle(document.body).fontFamily.slice(0, 120);
+  out.bodyFontOk = hasAny(fam(document.body), expected.body);
+  const headings = [...document.querySelectorAll("h1,h2,h3")].slice(0, 10);
+  out.headingFonts = [...new Set(headings.map((h) => fam(h).split(",")[0].trim()))].slice(0, 5);
+  out.headingFontOk = headings.length === 0 || headings.every((h) => hasAny(fam(h), expected.heading));
+  out.expectedFonts = expected;
+
+  const weights = new Set();
+  for (let i = 0; i < cap; i += Math.max(1, Math.floor(cap / 400))) {
+    weights.add(getComputedStyle(all[i]).fontWeight);
+  }
+  out.fontWeights = [...weights].sort();
+
+  // --- color palette conformance ---
+  const toHex = (rgb) => {
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(rgb);
+    if (!m) return null;
+    if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+    return "#" + [m[1], m[2], m[3]].map((v) => (+v).toString(16).padStart(2, "0")).join("");
+  };
+  const paletteHex = Object.keys(data.colors);
+  const parse = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const nearest = (hex) => {
+    const [r, g, b] = parse(hex);
+    let best = null, bd = Infinity;
+    for (const p of paletteHex) {
+      const [pr, pg, pb] = parse(p);
+      const d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+      if (d < bd) { bd = d; best = p; }
+    }
+    return { token: data.colors[best], hex: best, close: bd <= 900 };
+  };
+  const sampleEls = document.querySelectorAll(
+    "a,button,input,select,h1,h2,h3,header,nav,footer,[class*='btn'],[class*='aegov']");
+  const colorUse = new Map();
+  for (const el of [...sampleEls].slice(0, 300)) {
+    const cs = getComputedStyle(el);
+    for (const c of [cs.color, cs.backgroundColor, cs.borderColor]) {
+      const hex = toHex(c);
+      if (!hex || hex === "#ffffff" || hex === "#000000") continue;
+      colorUse.set(hex, (colorUse.get(hex) || 0) + 1);
+    }
+  }
+  let inPal = 0, outPal = 0;
+  const offenders = [];
+  for (const [hex, count] of colorUse) {
+    const n = nearest(hex);
+    if (data.colors[hex] || n.close) inPal += count;
+    else { outPal += count; offenders.push({ hex, count, nearestToken: n.token, nearestHex: n.hex }); }
+  }
+  out.colorsSampled = inPal + outPal;
+  out.colorsInPalette = inPal;
+  out.offenders = offenders.sort((a, b) => b.count - a.count).slice(0, 6);
+
+  // --- raw controls not using DLS component classes ---
+  const controls = [...document.querySelectorAll("button,input:not([type=hidden]),select,textarea")];
+  out.controls = controls.length;
+  out.controlsWithAegov = controls.filter((el) =>
+    [...el.classList].some((c) => c.startsWith("aegov-")) ||
+    (el.closest("[class*='aegov-']") !== null)).length;
+
+  return out;
+}
+
 /* ---------- message router ---------- */
 
 const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html" };
@@ -559,6 +659,8 @@ EXT.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { result: await exec(tabId, staleInstallInPage) };
       case "staleCheck":
         return { result: await exec(tabId, staleCheckInPage) };
+      case "dlsCheck":
+        return { result: await exec(tabId, dlsCheckInPage, [DLS_DATA]) };
       case "helper":
         if (!HELPERS[msg.name]) throw new Error("unknown helper: " + msg.name);
         return { result: await exec(tabId, HELPERS[msg.name]) };

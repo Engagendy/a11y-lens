@@ -47,6 +47,13 @@ engine behind axe DevTools.
   (event-page background, gecko id; the contrast eyedropper is Chromium-only)
 - **WCAG 3.0 readiness** — honest status in the Help tab: WCAG 3 is a W3C draft;
   the tool tracks WCAG 2.0/2.1/2.2 and will add WCAG 3 when axe-core does
+- **🇦🇪 UAE Design System (DLS) check** — one-click heuristic audit against the
+  AEGov design system (designsystem.gov.ae, mandated for UAE federal entities):
+  `aegov-` component adoption, the DLS font set (Roboto/Inter · Noto Kufi
+  Arabic/Alexandria), the 5-weight limit, color conformance against the real
+  115-token `@aegov/design-system@3.0.7` palette (with nearest-token suggestions
+  for off-palette colors), bilingual/RTL requirements, viewport, and the
+  mandated WCAG 2.2 AA level — reported as PASS/WARN/FAIL with a score
 - **Keyboard shortcuts** — in the panel: S scan, R record/stop flow, X clear
   highlights, C contrast, 1/2/3 switch tabs
 - **CI companion** (`ci/`) — Playwright + @axe-core/playwright script running the

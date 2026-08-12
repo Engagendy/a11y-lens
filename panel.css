@@ -135,6 +135,42 @@ button.export { padding: 2px 8px; font-size: 11px; }
 }
 #historyLegend { font-size: 11px; opacity: 0.85; margin-top: 2px; }
 
+#dlsReport {
+  margin: 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid #b68a35; /* aegold-500 */
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+#dlsReport h2 { font-size: 13px; margin: 0 0 8px; }
+.dls-row {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--border);
+  align-items: baseline;
+}
+.dls-verdict { width: 44px; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+.dls-verdict.pass { color: var(--passes); }
+.dls-verdict.warn { color: #b68a35; }
+.dls-verdict.fail { color: var(--critical); }
+.dls-label { font-weight: 600; min-width: 140px; }
+.dls-detail { opacity: 0.85; }
+.dls-detail code {
+  font: 11px ui-monospace, Menlo, monospace;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.dls-swatch {
+  display: inline-block;
+  width: 11px; height: 11px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+  margin-inline-end: 3px;
+}
+
 #contrastBar {
   display: flex;
   align-items: center;

@@ -1430,6 +1430,12 @@ const HELP_TOPICS = [
     example: "Set Arabic in Options and the panel chrome flips to RTL for colleagues who prefer it.",
   },
   {
+    icon: "🇦🇪", title: "UAE Design System (DLS) check",
+    what: "One click audits the page against the UAE Design System (AEGov DLS v3, designsystem.gov.ae — mandated for federal government entities): aegov- component adoption, the DLS font set (Roboto/Inter for English, Noto Kufi Arabic/Alexandria for Arabic), the 5-weight limit, color-token conformance against the real @aegov/design-system palette (115 tokens), bilingual/RTL requirements, responsive viewport, and the mandated WCAG 2.2 AA level via the scanner.",
+    benefit: "FGE teams get an instant answer to 'is this page on the design system, and where does it deviate?' — including which non-token colors are in use and their nearest official token.",
+    example: "A ministry microsite scores 3/8: fonts are Open Sans instead of Roboto/Inter, buttons use #1a73e8 (nearest token: techblue-600), and there is no Arabic switcher. The report is the punch list for the vendor.",
+  },
+  {
     icon: "🔭", title: "WCAG 3.0 readiness",
     what: "WCAG 3.0 ('Silver') is still a W3C draft — no tool can legitimately test against it yet, and axe-core has no WCAG 3 rules because the success criteria aren't final. A11y Lens tracks the stable standards (WCAG 2.0/2.1/2.2, which remain the legal basis worldwide) and will add WCAG 3 scoring when the standard and axe-core support land.",
     benefit: "You can't be caught out: everything this tool reports maps to the standards auditors and regulations actually use today. WCAG 2.2 AA conformance is also the expected on-ramp to WCAG 3 — nothing you fix now is wasted.",
@@ -1645,6 +1651,12 @@ const HELP_AR = {
     benefit: "لن تُفاجأ: كل ما تبلغ عنه الأداة يطابق المعايير التي يعتمدها المدققون والأنظمة اليوم، ومطابقة WCAG 2.2 AA هي الممر المتوقع نحو WCAG 3 — لا شيء تصلحه الآن يضيع.",
     example: "يسأل عميل «هل نحن جاهزون لـ WCAG 3؟». الإجابة الأمينة التي تدعمها الأداة: «WCAG 3 مسودة؛ نطابق WCAG 2.2 AA وهو المطلوب حالياً والأساس الذي يبني عليه WCAG 3».",
   },
+  "UAE Design System (DLS) check": {
+    title: "فحص نظام التصميم الإماراتي (DLS)",
+    what: "نقرة واحدة تدقق الصفحة وفق نظام التصميم الإماراتي (AEGov DLS v3 على designsystem.gov.ae — الإلزامي للجهات الاتحادية): اعتماد مكوّنات aegov-، مجموعة الخطوط (Roboto/Inter للإنجليزية وNoto Kufi Arabic/Alexandria للعربية)، حد الأوزان الخمسة، مطابقة الألوان لرموز حزمة @aegov/design-system الفعلية (115 رمزاً)، متطلبات ثنائية اللغة وRTL، وسم العرض المتجاوب، ومستوى WCAG 2.2 AA الإلزامي عبر الفاحص.",
+    benefit: "تحصل فرق الجهات الاتحادية على إجابة فورية: هل الصفحة على نظام التصميم؟ وأين تنحرف؟ — بما فيها الألوان غير الرمزية المستخدمة وأقرب رمز رسمي لكل منها.",
+    example: "موقع فرعي لوزارة يسجل 3/8: الخطوط Open Sans بدل Roboto/Inter، والأزرار بلون #1a73e8 (أقرب رمز: techblue-600)، ولا يوجد مبدّل للعربية. التقرير هو قائمة التصحيح للمورّد.",
+  },
   "What automation can't do": {
     title: "ما لا تستطيعه الأتمتة",
     what: "قواعد axe-core متحفظة عمداً: لا تبلغ إلا عما يمكن إثبات خطئه، فالإنذارات الكاذبة شبه معدومة.",
@@ -1675,4 +1687,198 @@ function localizeTopic(topic) {
   const ar = HELP_AR[topic.title];
   if (!ar) return topic;
   return { ...topic, title: ar.title, what: ar.what, benefit: ar.benefit, example: ar.example };
+}
+
+/* ---------------- UAE Design System (DLS) check ---------------- */
+
+const DLS_STR = {
+  en: {
+    title: "🇦🇪 UAE Design System check (heuristic — based on @aegov/design-system v3 conventions)",
+    running: "Running DLS check…",
+    adoption: "DLS adoption", typography: "Typography", weights: "Font weights",
+    colors: "Color tokens", bilingual: "Language & RTL", viewport: "Viewport meta",
+    components: "DLS components", wcag: "WCAG 2.2 AA",
+    notAdopted: "No aegov- classes found — this page does not appear to use the UAE Design System.",
+    adopted: (n, d) => `${n} aegov- class usages (${d} distinct), e.g. `,
+    fontsOk: "Body and headings use the DLS font set.",
+    fontsBad: (exp) => `Expected ${exp} — found: `,
+    weightsOk: (n) => `${n} distinct weights (DLS limit: 5).`,
+    weightsBad: (n) => `${n} distinct font weights in use — DLS limits to 5.`,
+    colorsOk: (p) => `${p}% of sampled colors match DLS tokens.`,
+    colorsBad: (p) => `Only ${p}% of sampled colors match DLS tokens. Top non-token colors: `,
+    langMissing: "html has no lang attribute — required for FGE sites (bilingual EN/AR).",
+    rtlBad: "Page language is Arabic but dir is not rtl.",
+    noSwitcher: "No language switcher detected (EN ⇄ AR is expected on FGE sites).",
+    bilingualOk: (l) => `lang="${l}", direction correct` ,
+    switcherFound: ", language switcher present.",
+    viewportOk: "Responsive viewport meta present.",
+    viewportBad: "Missing <meta name=\"viewport\"> — DLS layouts are responsive-first.",
+    componentsInfo: (w, t) => `${w}/${t} form controls are inside DLS components.`,
+    wcagHint: "DLS mandates WCAG 2.2 AA — run ▶ Scan with the WCAG 2.2 AA rule set for this part.",
+    wcagDone: (n) => `Last scan (WCAG 2.2 AA): ${n} violating element(s).`,
+    score: (p, t) => `Result: ${p}/${t} checks passed`,
+  },
+  ar: {
+    title: "🇦🇪 فحص نظام التصميم الإماراتي (استدلالي — وفق اصطلاحات @aegov/design-system v3)",
+    running: "جارٍ فحص نظام التصميم…",
+    adoption: "اعتماد النظام", typography: "الخطوط", weights: "أوزان الخط",
+    colors: "ألوان الرموز", bilingual: "اللغة والاتجاه", viewport: "وسم العرض",
+    components: "مكوّنات النظام", wcag: "WCAG 2.2 AA",
+    notAdopted: "لم يُعثر على أصناف aegov- — لا يبدو أن الصفحة تستخدم نظام التصميم الإماراتي.",
+    adopted: (n, d) => `${n} استخداماً لأصناف aegov- (${d} صنفاً مميزاً)، مثل `,
+    fontsOk: "النص والعناوين يستخدمان خطوط النظام.",
+    fontsBad: (exp) => `المتوقع ${exp} — وُجد: `,
+    weightsOk: (n) => `${n} أوزان مميزة (حد النظام: 5).`,
+    weightsBad: (n) => `${n} وزن خط مستخدم — يحدّ النظام بخمسة.`,
+    colorsOk: (p) => `${p}% من الألوان المفحوصة تطابق رموز النظام.`,
+    colorsBad: (p) => `فقط ${p}% من الألوان تطابق رموز النظام. أبرز الألوان غير الرمزية: `,
+    langMissing: "لا توجد سمة lang على html — مطلوبة لمواقع الجهات الاتحادية (ثنائية اللغة).",
+    rtlBad: "لغة الصفحة عربية لكن الاتجاه ليس rtl.",
+    noSwitcher: "لم يُرصد مبدّل لغة (يُتوقع EN ⇄ AR في مواقع الجهات الاتحادية).",
+    bilingualOk: (l) => `lang="${l}" والاتجاه صحيح`,
+    switcherFound: "، ومبدّل اللغة موجود.",
+    viewportOk: "وسم العرض المتجاوب موجود.",
+    viewportBad: "وسم <meta name=\"viewport\"> مفقود — تخطيطات النظام متجاوبة أولاً.",
+    componentsInfo: (w, t) => `${w}/${t} من عناصر النماذج داخل مكوّنات النظام.`,
+    wcagHint: "يلزم النظام بمطابقة WCAG 2.2 AA — شغّل ▶ الفحص بمجموعة قواعد WCAG 2.2 AA لهذا الجزء.",
+    wcagDone: (n) => `آخر فحص (WCAG 2.2 AA): ${n} عنصراً مخالفاً.`,
+    score: (p, t) => `النتيجة: نجاح ${p} من ${t} فحوصات`,
+  },
+};
+const dt = (key, ...args) => {
+  const v = (DLS_STR[lang] || DLS_STR.en)[key] ?? DLS_STR.en[key];
+  return typeof v === "function" ? v(...args) : v;
+};
+
+const dlsBtn = document.getElementById("dlsBtn");
+const dlsReportEl = document.getElementById("dlsReport");
+dlsBtn.addEventListener("click", runDlsCheck);
+
+async function runDlsCheck() {
+  statusEl.textContent = dt("running");
+  dlsBtn.disabled = true;
+  try {
+    const r = await bg("dlsCheck");
+    renderDlsReport(r);
+    statusEl.textContent = "";
+  } catch (err) {
+    statusEl.textContent = "DLS check failed: " + (err?.message || err);
+  } finally {
+    dlsBtn.disabled = false;
+  }
+}
+
+function dlsRow(verdict, label, detailNodes) {
+  const row = document.createElement("div");
+  row.className = "dls-row";
+  const v = document.createElement("span");
+  v.className = "dls-verdict " + verdict;
+  v.textContent = verdict === "pass" ? "✓ PASS" : verdict === "warn" ? "△ WARN" : "✗ FAIL";
+  const l = document.createElement("span");
+  l.className = "dls-label";
+  l.textContent = label;
+  const d = document.createElement("span");
+  d.className = "dls-detail";
+  for (const n of detailNodes) d.append(n);
+  row.append(v, l, d);
+  return row;
+}
+
+function swatch(hex) {
+  const s = document.createElement("span");
+  s.className = "dls-swatch";
+  s.style.background = hex;
+  return s;
+}
+
+function renderDlsReport(r) {
+  dlsReportEl.hidden = false;
+  dlsReportEl.textContent = "";
+  const h = document.createElement("h2");
+  h.textContent = dt("title");
+  dlsReportEl.appendChild(h);
+
+  const rows = [];
+
+  // 1. adoption
+  if (r.aegovCount > 0) {
+    const code = document.createElement("code");
+    code.textContent = r.aegovClasses.slice(0, 4).map(([c]) => c).join(", ");
+    rows.push(["pass", dt("adoption"), [dt("adopted", r.aegovCount, r.aegovClasses.length), code]]);
+  } else {
+    rows.push(["fail", dt("adoption"), [dt("notAdopted")]]);
+  }
+
+  // 2. typography
+  const expStr = `${r.expectedFonts.body[0]} / ${r.expectedFonts.heading[0]}`;
+  if (r.bodyFontOk && r.headingFontOk) {
+    rows.push(["pass", dt("typography"), [dt("fontsOk")]]);
+  } else {
+    const code = document.createElement("code");
+    code.textContent = [r.bodyFont.split(",")[0], ...r.headingFonts].slice(0, 3).join(", ");
+    rows.push(["fail", dt("typography"), [dt("fontsBad", expStr), code]]);
+  }
+
+  // 3. weights
+  const wN = r.fontWeights.length;
+  rows.push([wN <= 5 ? "pass" : "warn", dt("weights"),
+    [wN <= 5 ? dt("weightsOk", wN) : dt("weightsBad", wN)]]);
+
+  // 4. colors
+  if (r.colorsSampled > 0) {
+    const pct = Math.round((r.colorsInPalette / r.colorsSampled) * 100);
+    if (pct >= 70) {
+      rows.push(["pass", dt("colors"), [dt("colorsOk", pct)]]);
+    } else {
+      const detail = [dt("colorsBad", pct)];
+      for (const o of r.offenders.slice(0, 4)) {
+        detail.push(swatch(o.hex));
+        const code = document.createElement("code");
+        code.textContent = `${o.hex} (→ ${o.nearestToken})`;
+        detail.push(code, " ");
+      }
+      rows.push([pct >= 40 ? "warn" : "fail", dt("colors"), detail]);
+    }
+  }
+
+  // 5. bilingual / RTL
+  if (!r.lang) {
+    rows.push(["fail", dt("bilingual"), [dt("langMissing")]]);
+  } else if (r.lang.toLowerCase().startsWith("ar") && r.dir !== "rtl") {
+    rows.push(["fail", dt("bilingual"), [dt("rtlBad")]]);
+  } else if (!r.langSwitcher) {
+    rows.push(["warn", dt("bilingual"), [dt("bilingualOk", r.lang) + ". " + dt("noSwitcher")]]);
+  } else {
+    rows.push(["pass", dt("bilingual"), [dt("bilingualOk", r.lang) + dt("switcherFound")]]);
+  }
+
+  // 6. viewport
+  rows.push([r.viewport ? "pass" : "fail", dt("viewport"),
+    [r.viewport ? dt("viewportOk") : dt("viewportBad")]]);
+
+  // 7. components (informational when adopted)
+  if (r.aegovCount > 0 && r.controls > 0) {
+    const ratio = r.controlsWithAegov / r.controls;
+    rows.push([ratio >= 0.8 ? "pass" : "warn", dt("components"),
+      [dt("componentsInfo", r.controlsWithAegov, r.controls)]]);
+  }
+
+  // 8. WCAG tie-in
+  if (lastReport && (settings.level === "wcag22aa" || lastReport.ruleSet.includes("2.2"))) {
+    const total = lastReport.violations.reduce((a, v) => a + v.nodeTotal, 0);
+    rows.push([total === 0 ? "pass" : "fail", dt("wcag"), [dt("wcagDone", total)]]);
+  } else {
+    rows.push(["warn", dt("wcag"), [dt("wcagHint")]]);
+  }
+
+  let passed = 0;
+  for (const [verdict, label, detail] of rows) {
+    if (verdict === "pass") passed++;
+    dlsReportEl.appendChild(dlsRow(verdict, label, detail));
+  }
+  const score = document.createElement("div");
+  score.className = "dls-row";
+  score.style.fontWeight = "700";
+  score.textContent = dt("score", passed, rows.length);
+  dlsReportEl.appendChild(score);
 }

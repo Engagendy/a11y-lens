@@ -21,6 +21,7 @@
       <button id="autofixBtn" title="Apply every machine-fixable patch to the live page (temporary — reload restores the original; your source still needs the real edits)" hidden>⚡ Auto-fix page</button>
       <button id="clearBtn" title="Remove highlights from the page">✕ Clear highlights</button>
       <button id="contrastToggle" title="Color contrast checker">◐ Contrast</button>
+      <button id="dlsBtn" title="Check conformance with the UAE Design System (AEGov DLS) — designsystem.gov.ae">🇦🇪 DLS</button>
       <span id="status"></span>
       <span class="spacer"></span>
       <span id="exportGroup" hidden>
@@ -66,6 +67,8 @@
       <canvas id="historyChart" height="72"></canvas>
       <div id="historyLegend"></div>
     </div>
+
+    <div id="dlsReport" hidden></div>
 
     <main id="results">
       <p class="empty">Click <b>Scan this page</b> to run an axe-core audit on the inspected page.</p>

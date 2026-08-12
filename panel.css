@@ -129,6 +129,12 @@ button.export { padding: 2px 8px; font-size: 11px; }
 
 .diff { align-self: center; opacity: 0.85; }
 
+#historyWrap {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+#historyLegend { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+
 #contrastBar {
   display: flex;
   align-items: center;

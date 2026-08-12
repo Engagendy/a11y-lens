@@ -1,7 +1,9 @@
 // A11y Lens background service worker.
-// DevTools panel pages cannot use chrome.scripting or chrome.storage directly —
+// DevTools panel pages cannot use EXT.scripting or EXT.storage directly —
 // the panel sends {op, tabId, ...} messages here and this worker does the work.
 
+// Works on Chromium (chrome.*) and Firefox (browser.*, promise-based).
+const EXT = globalThis.browser || globalThis.chrome;
 /* ---------- functions injected into the inspected page ---------- */
 
 function runAxeInPage(runOnlyArg) {
@@ -18,7 +20,7 @@ function runAxeInPage(runOnlyArg) {
       description: v.description,
       helpUrl: v.helpUrl,
       nodes: v.nodes.slice(0, 50).map((n) => ({
-        target: n.target.map(String),
+        target: n.target.map((t) => (Array.isArray(t) ? t.join(" >>> ") : String(t))),
         html: n.html.slice(0, 300),
         failureSummary: n.failureSummary || "",
       })),
@@ -30,6 +32,32 @@ function runAxeInPage(runOnlyArg) {
 function highlightInPage(sel) {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
+  const deepQ = (s) => {
+    if (s.includes(" >>> ")) {
+      let root = document, el = null;
+      for (const part of s.split(" >>> ")) {
+        el = null;
+        try { el = root.querySelector(part); } catch (_) {}
+        if (!el) return null;
+        root = el.shadowRoot || el;
+      }
+      return el;
+    }
+    try { const el = document.querySelector(s); if (el) return el; } catch (_) { return null; }
+    const walk = (root) => {
+      for (const h of root.querySelectorAll("*")) {
+        if (h.shadowRoot) {
+          let f = null;
+          try { f = h.shadowRoot.querySelector(s); } catch (_) {}
+          if (f) return f;
+          f = walk(h.shadowRoot);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return walk(document);
+  };
   document.querySelectorAll(".__a11y_lens_highlight").forEach((el) => {
     el.classList.remove("__a11y_lens_highlight");
   });
@@ -43,8 +71,7 @@ function highlightInPage(sel) {
     }`;
     document.documentElement.appendChild(style);
   }
-  let el = null;
-  try { el = document.querySelector(sel); } catch (_) {}
+  const el = deepQ(sel);
   if (el) {
     el.classList.add("__a11y_lens_highlight");
     el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -54,6 +81,32 @@ function highlightInPage(sel) {
 function highlightAllInPage(list) {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
+  const deepQ = (s) => {
+    if (s.includes(" >>> ")) {
+      let root = document, el = null;
+      for (const part of s.split(" >>> ")) {
+        el = null;
+        try { el = root.querySelector(part); } catch (_) {}
+        if (!el) return null;
+        root = el.shadowRoot || el;
+      }
+      return el;
+    }
+    try { const el = document.querySelector(s); if (el) return el; } catch (_) { return null; }
+    const walk = (root) => {
+      for (const h of root.querySelectorAll("*")) {
+        if (h.shadowRoot) {
+          let f = null;
+          try { f = h.shadowRoot.querySelector(s); } catch (_) {}
+          if (f) return f;
+          f = walk(h.shadowRoot);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return walk(document);
+  };
   const colors = { critical: "#d32f2f", serious: "#e65100", moderate: "#f9a825", minor: "#616161" };
   document.querySelectorAll("[data-a11y-lens]").forEach((el) => {
     el.removeAttribute("data-a11y-lens");
@@ -66,8 +119,7 @@ function highlightAllInPage(list) {
     if (!best.has(sel) || rank[impact] < rank[best.get(sel)]) best.set(sel, impact);
   }
   for (const [sel, impact] of best) {
-    let el = null;
-    try { el = document.querySelector(sel); } catch (_) {}
+    const el = deepQ(sel);
     if (el) {
       el.setAttribute("data-a11y-lens", impact);
       el.style.setProperty("outline", `3px solid ${colors[impact]}`, "important");
@@ -151,8 +203,33 @@ function pickCheckInPage() {
 function applyFixInPage(selector, patch) {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
-  let el = null;
-  try { el = document.querySelector(selector); } catch (_) {}
+  const deepQ = (s) => {
+    if (s.includes(" >>> ")) {
+      let root = document, el = null;
+      for (const part of s.split(" >>> ")) {
+        el = null;
+        try { el = root.querySelector(part); } catch (_) {}
+        if (!el) return null;
+        root = el.shadowRoot || el;
+      }
+      return el;
+    }
+    try { const el = document.querySelector(s); if (el) return el; } catch (_) { return null; }
+    const walk = (root) => {
+      for (const h of root.querySelectorAll("*")) {
+        if (h.shadowRoot) {
+          let f = null;
+          try { f = h.shadowRoot.querySelector(s); } catch (_) {}
+          if (f) return f;
+          f = walk(h.shadowRoot);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return walk(document);
+  };
+  const el = deepQ(selector);
   if (!el) return false;
   window.__a11yLensUndo = window.__a11yLensUndo || {};
   if (!window.__a11yLensUndo[selector]) {
@@ -177,11 +254,36 @@ function applyFixInPage(selector, patch) {
 function applyFixAllInPage(items) {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 2000);
+  const deepQ = (s) => {
+    if (s.includes(" >>> ")) {
+      let root = document, el = null;
+      for (const part of s.split(" >>> ")) {
+        el = null;
+        try { el = root.querySelector(part); } catch (_) {}
+        if (!el) return null;
+        root = el.shadowRoot || el;
+      }
+      return el;
+    }
+    try { const el = document.querySelector(s); if (el) return el; } catch (_) { return null; }
+    const walk = (root) => {
+      for (const h of root.querySelectorAll("*")) {
+        if (h.shadowRoot) {
+          let f = null;
+          try { f = h.shadowRoot.querySelector(s); } catch (_) {}
+          if (f) return f;
+          f = walk(h.shadowRoot);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return walk(document);
+  };
   window.__a11yLensUndo = window.__a11yLensUndo || {};
   let applied = 0;
   for (const { selector, patch } of items) {
-    let el = null;
-    try { el = document.querySelector(selector); } catch (_) {}
+    const el = deepQ(selector);
     if (!el) continue;
     if (!window.__a11yLensUndo[selector]) {
       const undo = { attrs: {}, styles: {} };
@@ -205,11 +307,36 @@ function applyFixAllInPage(items) {
 function undoAllInPage() {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 2000);
+  const deepQ = (s) => {
+    if (s.includes(" >>> ")) {
+      let root = document, el = null;
+      for (const part of s.split(" >>> ")) {
+        el = null;
+        try { el = root.querySelector(part); } catch (_) {}
+        if (!el) return null;
+        root = el.shadowRoot || el;
+      }
+      return el;
+    }
+    try { const el = document.querySelector(s); if (el) return el; } catch (_) { return null; }
+    const walk = (root) => {
+      for (const h of root.querySelectorAll("*")) {
+        if (h.shadowRoot) {
+          let f = null;
+          try { f = h.shadowRoot.querySelector(s); } catch (_) {}
+          if (f) return f;
+          f = walk(h.shadowRoot);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return walk(document);
+  };
   const undoMap = window.__a11yLensUndo || {};
   let restored = 0;
   for (const [selector, undo] of Object.entries(undoMap)) {
-    let el = null;
-    try { el = document.querySelector(selector); } catch (_) {}
+    const el = deepQ(selector);
     if (!el) continue;
     for (const [name, value] of Object.entries(undo.attrs)) {
       if (value === null) el.removeAttribute(name);
@@ -228,8 +355,33 @@ function undoAllInPage() {
 function undoFixInPage(selector) {
   window.__a11yLensMuted = true;
   setTimeout(() => { window.__a11yLensMuted = false; }, 1500);
-  let el = null;
-  try { el = document.querySelector(selector); } catch (_) {}
+  const deepQ = (s) => {
+    if (s.includes(" >>> ")) {
+      let root = document, el = null;
+      for (const part of s.split(" >>> ")) {
+        el = null;
+        try { el = root.querySelector(part); } catch (_) {}
+        if (!el) return null;
+        root = el.shadowRoot || el;
+      }
+      return el;
+    }
+    try { const el = document.querySelector(s); if (el) return el; } catch (_) { return null; }
+    const walk = (root) => {
+      for (const h of root.querySelectorAll("*")) {
+        if (h.shadowRoot) {
+          let f = null;
+          try { f = h.shadowRoot.querySelector(s); } catch (_) {}
+          if (f) return f;
+          f = walk(h.shadowRoot);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return walk(document);
+  };
+  const el = deepQ(selector);
   const undo = window.__a11yLensUndo?.[selector];
   if (!el || !undo) return false;
   for (const [name, value] of Object.entries(undo.attrs)) {
@@ -376,7 +528,7 @@ const HELPERS = {
 const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html" };
 
 async function exec(tabId, func, args, allFrames = false) {
-  const results = await chrome.scripting.executeScript({
+  const results = await EXT.scripting.executeScript({
     target: { tabId, allFrames },
     func,
     args: args || [],
@@ -384,12 +536,12 @@ async function exec(tabId, func, args, allFrames = false) {
   return results[0]?.result;
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+EXT.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     const { op, tabId } = msg;
     switch (op) {
       case "injectAxe":
-        await chrome.scripting.executeScript({
+        await EXT.scripting.executeScript({
           target: { tabId, allFrames: true },
           files: ["vendor/axe.min.js"],
         });
@@ -401,7 +553,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       case "highlightAll":
         return { result: await exec(tabId, highlightAllInPage, [msg.items]) };
       case "clearHighlights":
-        await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func: clearInPage });
+        await EXT.scripting.executeScript({ target: { tabId, allFrames: true }, func: clearInPage });
         return { result: true };
       case "staleInstall":
         return { result: await exec(tabId, staleInstallInPage) };
@@ -423,7 +575,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       case "undoAll":
         return { result: await exec(tabId, undoAllInPage) };
       case "aiFix": {
-        const { aiKey, aiModel } = await chrome.storage.local.get(["aiKey", "aiModel"]);
+        const { aiKey, aiModel } = await EXT.storage.local.get(["aiKey", "aiModel"]);
         if (!aiKey) throw new Error("No API key set — add one in Options");
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
@@ -447,17 +599,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { result: json.content.filter((b) => b.type === "text").map((b) => b.text).join("") };
       }
       case "storeGet":
-        return { result: (await chrome.storage.local.get(msg.key))[msg.key] ?? null };
+        return { result: (await EXT.storage.local.get(msg.key))[msg.key] ?? null };
       case "storeSet":
-        await chrome.storage.local.set({ [msg.key]: msg.value });
+        await EXT.storage.local.set({ [msg.key]: msg.value });
         return { result: true };
       case "settingsGet": {
-        const stored = await chrome.storage.sync.get("settings");
+        const stored = await EXT.storage.sync.get("settings");
         return { result: { ...DEFAULT_SETTINGS, ...(stored.settings || {}) } };
       }
       case "settingsSet": {
-        const stored = await chrome.storage.sync.get("settings");
-        await chrome.storage.sync.set({ settings: { ...(stored.settings || {}), ...msg.value } });
+        const stored = await EXT.storage.sync.get("settings");
+        await EXT.storage.sync.set({ settings: { ...(stored.settings || {}), ...msg.value } });
         return { result: true };
       }
       default:

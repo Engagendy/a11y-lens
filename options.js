@@ -1,4 +1,6 @@
-// Options page runs in a normal extension context, so chrome.storage is available directly.
+// Options page runs in a normal extension context, so EXT.storage is available directly.
+// Works on Chromium (chrome.*) and Firefox (browser.*, promise-based).
+const EXT = globalThis.browser || globalThis.chrome;
 const DEFAULTS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html" };
 
 const levelEl = document.getElementById("level");
@@ -11,7 +13,7 @@ const aiModelEl = document.getElementById("aiModel");
 const savedEl = document.getElementById("saved");
 
 async function load() {
-  const stored = await chrome.storage.sync.get("settings");
+  const stored = await EXT.storage.sync.get("settings");
   const s = { ...DEFAULTS, ...(stored.settings || {}) };
   levelEl.value = s.level;
   bpEl.checked = s.bestPractice;
@@ -20,7 +22,7 @@ async function load() {
   frameworkEl.value = s.framework;
   document.documentElement.dir = s.lang === "ar" ? "rtl" : "ltr";
   // API key stays in local storage — never sync a key across devices.
-  const local = await chrome.storage.local.get(["aiKey", "aiModel"]);
+  const local = await EXT.storage.local.get(["aiKey", "aiModel"]);
   aiKeyEl.value = local.aiKey || "";
   aiModelEl.value = local.aiModel || "claude-opus-4-8";
 }
@@ -38,13 +40,13 @@ async function save() {
     lang: langEl.value,
     framework: frameworkEl.value,
   };
-  await chrome.storage.sync.set({ settings });
+  await EXT.storage.sync.set({ settings });
   document.documentElement.dir = settings.lang === "ar" ? "rtl" : "ltr";
   flashSaved();
 }
 
 async function saveAi() {
-  await chrome.storage.local.set({ aiKey: aiKeyEl.value.trim(), aiModel: aiModelEl.value });
+  await EXT.storage.local.set({ aiKey: aiKeyEl.value.trim(), aiModel: aiModelEl.value });
   flashSaved();
 }
 

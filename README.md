@@ -35,7 +35,18 @@ engine behind axe DevTools.
   auto-run so the evidence is on screen while you answer. Verdicts and findings
   persist per URL and appear in JSON/CSV/HTML exports
 - **Options page** — default WCAG level, best-practice toggle, flow scan interval,
-  and panel language: English or العربية with full RTL layout
+  and panel language: English or العربية with full RTL layout **and fully
+  translated content** (manual tests, wizard questions, and help topics)
+- **Scan-history trend chart** — per-URL violation counts over the last 30 scans,
+  drawn per impact level with a fixed/regressed delta
+- **PDF export** — print-ready report via the browser's Save-as-PDF dialog;
+  HTML/CSV/JSON exports now embed the suggested fix for every finding
+- **Shadow DOM support** — findings inside open shadow roots resolve, highlight,
+  and auto-fix correctly (`host >>> selector`)
+- **Firefox build** — `./build-firefox.sh` produces `dist/a11y-lens-firefox.zip`
+  (event-page background, gecko id; the contrast eyedropper is Chromium-only)
+- **WCAG 3.0 readiness** — honest status in the Help tab: WCAG 3 is a W3C draft;
+  the tool tracks WCAG 2.0/2.1/2.2 and will add WCAG 3 when axe-core does
 - **Keyboard shortcuts** — in the panel: S scan, R record/stop flow, X clear
   highlights, C contrast, 1/2/3 switch tabs
 - **CI companion** (`ci/`) — Playwright + @axe-core/playwright script running the

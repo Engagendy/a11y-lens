@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Shadow DOM test</title></head>
+<body>
+  <h1>Shadow DOM test page</h1>
+  <my-widget></my-widget>
+  <script>
+    customElements.define("my-widget", class extends HTMLElement {
+      connectedCallback() {
+        const root = this.attachShadow({ mode: "open" });
+        root.innerHTML = `
+          <img src="missing.png" id="shadow-img">
+          <button id="shadow-btn"></button>
+          <input type="text" placeholder="in shadow">
+        `;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,16 +1,29 @@
-const tabId = chrome.devtools.inspectedWindow.tabId;
+// Works on Chromium (chrome.*) and Firefox (browser.*, promise-based).
+const EXT = globalThis.browser || globalThis.chrome;
+const tabId = EXT.devtools.inspectedWindow.tabId;
 
 /* ---------------- background messaging ----------------
-   DevTools pages cannot use chrome.scripting / chrome.storage.
+   DevTools pages cannot use EXT.scripting / EXT.storage.
    All page injection and storage goes through background.js. */
 
-function bg(op, extra = {}) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ op, tabId, ...extra }, (res) => {
-      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-      if (res && res.error) return reject(new Error(res.error));
-      resolve(res ? res.result : undefined);
-    });
+async function bg(op, extra = {}) {
+  // Promise-form sendMessage works on Chromium MV3 and Firefox alike.
+  const res = await EXT.runtime.sendMessage({ op, tabId, ...extra });
+  if (res && res.error) throw new Error(res.error);
+  return res ? res.result : undefined;
+}
+
+// inspectedWindow.eval is callback-based on Chromium, promise-based on Firefox.
+function devEval(expr) {
+  return new Promise((resolve) => {
+    try {
+      const maybe = EXT.devtools.inspectedWindow.eval(expr, (result) => resolve(result));
+      if (maybe && typeof maybe.then === "function") {
+        maybe.then((r) => resolve(Array.isArray(r) ? r[0] : r)).catch(() => resolve(null));
+      }
+    } catch (_) {
+      resolve(null);
+    }
   });
 }
 
@@ -454,11 +467,57 @@ async function applyHistoryDiff(report) {
     } else {
       diffEl.textContent = t("firstScan");
     }
-    await bg("storeSet", { key: storageKey, value: { keys: currentKeys, scannedAt: report.scannedAt } });
+    // Append this run to the per-URL trend series (kept to the last 30 scans).
+    const counts = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+    for (const v of report.violations) counts[v.impact] = (counts[v.impact] || 0) + v.nodeTotal;
+    const prevStored = await bg("storeGet", { key: storageKey }).catch(() => null);
+    const runs = [...((prevStored && prevStored.runs) || []),
+      { at: report.scannedAt, ...counts }].slice(-30);
+    await bg("storeSet", { key: storageKey, value: { keys: currentKeys, scannedAt: report.scannedAt, runs } });
+    drawHistoryChart(runs);
   } catch (err) {
     console.error("history diff failed", err);
     diffEl.textContent = "";
   }
+}
+
+const IMPACT_COLORS = { critical: "#d32f2f", serious: "#e65100", moderate: "#f9a825", minor: "#9e9e9e" };
+
+function drawHistoryChart(runs) {
+  const wrap = document.getElementById("historyWrap");
+  if (!runs || runs.length < 2) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  const canvas = document.getElementById("historyChart");
+  const W = (canvas.width = canvas.parentElement.clientWidth - 20 || 600);
+  const H = canvas.height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+  const max = Math.max(1, ...runs.map((r) => r.critical + r.serious + r.moderate + r.minor));
+  const x = (i) => 6 + (i * (W - 12)) / (runs.length - 1);
+  const y = (v) => H - 8 - (v / max) * (H - 16);
+  for (const impact of ["minor", "moderate", "serious", "critical"]) {
+    ctx.beginPath();
+    ctx.strokeStyle = IMPACT_COLORS[impact];
+    ctx.lineWidth = impact === "critical" ? 2 : 1.25;
+    runs.forEach((r, i) => (i ? ctx.lineTo(x(i), y(r[impact])) : ctx.moveTo(x(0), y(r[impact]))));
+    ctx.stroke();
+    runs.forEach((r, i) => {
+      ctx.beginPath();
+      ctx.fillStyle = IMPACT_COLORS[impact];
+      ctx.arc(x(i), y(r[impact]), 2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  const legend = document.getElementById("historyLegend");
+  legend.textContent = "";
+  const first = runs[0], last = runs[runs.length - 1];
+  const total = (r) => r.critical + r.serious + r.moderate + r.minor;
+  const delta = total(last) - total(first);
+  const span = document.createElement("span");
+  span.textContent = `${runs.length} scans · ${total(first)} → ${total(last)} violations ` +
+    (delta < 0 ? `(▼ ${-delta} fixed)` : delta > 0 ? `(▲ ${delta} more)` : "(no change)");
+  span.style.color = delta < 0 ? "var(--passes)" : delta > 0 ? "var(--critical)" : "";
+  legend.appendChild(span);
 }
 
 /* ---------------- highlight / inspect ---------------- */
@@ -481,9 +540,7 @@ function clearHighlights() {
 }
 
 function inspectElement(selector) {
-  chrome.devtools.inspectedWindow.eval(
-    `inspect(document.querySelector(${JSON.stringify(selector)}))`
-  );
+  devEval(`inspect(document.querySelector(${JSON.stringify(selector)}))`);
 }
 
 /* ---------------- auto-fix page ---------------- */
@@ -554,7 +611,7 @@ async function startStaleWatch() {
   }, 2000);
 }
 
-chrome.devtools.network.onNavigated.addListener(() => {
+EXT.devtools.network.onNavigated.addListener(() => {
   clearInterval(stalePoll);
   if (flowRecording) {
     setTimeout(flowScanOnce, 1200);
@@ -808,9 +865,7 @@ let manualState = { verdicts: {}, findings: {} }; // findings: testId -> [{q, se
 let manualUrl = null;
 
 async function getPageUrl() {
-  return new Promise((resolve) => {
-    chrome.devtools.inspectedWindow.eval("location.href", (res) => resolve(res || "unknown"));
-  });
+  return devEval("location.href").then((res) => res || "unknown");
 }
 
 async function loadManual() {
@@ -838,7 +893,7 @@ function verdictIcon(v) {
 
 function renderManual() {
   manualListEl.textContent = "";
-  for (const test of MANUAL_TESTS) {
+  for (const test of MANUAL_TESTS.map(localizeTest)) {
     manualListEl.appendChild(buildManualCard(test));
   }
   updateManualProgress();
@@ -1143,12 +1198,21 @@ function exportReport(format) {
   const base = "a11y-lens-" + safeName(lastReport.url) + "-" +
     lastReport.scannedAt.slice(0, 19).replace(/[:T]/g, "-");
   if (format === "json") {
-    const payload = { ...lastReport, manualTests: manualResultsForExport() };
+    const payload = { ...withSuggestions(lastReport), manualTests: manualResultsForExport() };
     download(base + ".json", "application/json", JSON.stringify(payload, null, 2));
   } else if (format === "csv") {
     download(base + ".csv", "text/csv", toCsv(lastReport));
   } else if (format === "html") {
     download(base + ".html", "text/html", toHtml(lastReport));
+  } else if (format === "pdf") {
+    // Print-ready report in a new tab; the user saves as PDF from the print dialog.
+    const html = toHtml(lastReport).replace(
+      "</body>",
+      "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script></body>"
+    );
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    window.open(url);
+    statusEl.textContent = "Report opened in a new tab — choose 'Save as PDF' in the print dialog.";
   } else if (format === "issues") {
     download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport()));
   }
@@ -1172,15 +1236,32 @@ function download(filename, mime, content) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+// Attach the suggested fix (per current framework setting) to every node.
+function withSuggestions(report) {
+  const fw = settings.framework || "html";
+  return {
+    ...report,
+    violations: report.violations.map((v) => ({
+      ...v,
+      nodes: v.nodes.map((n) => {
+        const fix = A11yFixes.suggestFix(v.id, n, fw);
+        return fix ? { ...n, suggestedFix: fix.snippet, fixNote: fix.note } : n;
+      }),
+    })),
+  };
+}
+
 function csvEscape(s) {
   return '"' + String(s ?? "").replace(/"/g, '""') + '"';
 }
 
 function toCsv(report) {
-  const rows = [["rule", "impact", "help", "helpUrl", "selector", "html", "failureSummary"]];
+  const fw = settings.framework || "html";
+  const rows = [["rule", "impact", "help", "helpUrl", "selector", "html", "failureSummary", "suggestedFix"]];
   for (const v of report.violations) {
     for (const n of v.nodes) {
-      rows.push([v.id, v.impact, v.help, v.helpUrl, n.target.join(" "), n.html, n.failureSummary]);
+      const fix = A11yFixes.suggestFix(v.id, n, fw);
+      rows.push([v.id, v.impact, v.help, v.helpUrl, n.target.join(" "), n.html, n.failureSummary, fix ? fix.snippet : ""]);
     }
   }
   const manual = manualResultsForExport();
@@ -1218,11 +1299,20 @@ function toHtml(report) {
         <small style="color:#888">— ${v.nodeTotal} element(s)</small></h2>
       <p style="margin:4px 0 10px;color:#555">${escHtml(v.description)}
         <a href="${escHtml(v.helpUrl)}">Learn more</a></p>
-      ${v.nodes.map((n) => `
+      ${v.nodes.map((n) => {
+        const fix = A11yFixes.suggestFix(v.id, n, settings.framework || "html");
+        return `
         <div style="border-top:1px solid #eee;padding:8px 0">
           <code style="display:block;background:#f6f6f6;padding:6px 8px;border-radius:4px;white-space:pre-wrap;word-break:break-all">${escHtml((n.pageLabel ? "[" + n.pageLabel + "] " : "") + n.html)}</code>
           <div style="color:#777;font-size:13px;white-space:pre-wrap;margin-top:4px">${escHtml(n.failureSummary)}</div>
-        </div>`).join("")}
+          ${fix ? `
+          <div style="border-left:4px solid #2e7d32;background:#f2f8f2;border-radius:4px;padding:6px 10px;margin-top:6px">
+            <div style="color:#2e7d32;font-weight:700;font-size:12px">Suggested fix</div>
+            <code style="display:block;white-space:pre-wrap;word-break:break-all;font-size:12px">${escHtml(fix.snippet)}</code>
+            <div style="color:#557755;font-size:12px;margin-top:2px">${escHtml(fix.note)}</div>
+          </div>` : ""}
+        </div>`;
+      }).join("")}
     </section>`).join("");
 
   return `<!DOCTYPE html>
@@ -1340,6 +1430,12 @@ const HELP_TOPICS = [
     example: "Set Arabic in Options and the panel chrome flips to RTL for colleagues who prefer it.",
   },
   {
+    icon: "🔭", title: "WCAG 3.0 readiness",
+    what: "WCAG 3.0 ('Silver') is still a W3C draft — no tool can legitimately test against it yet, and axe-core has no WCAG 3 rules because the success criteria aren't final. A11y Lens tracks the stable standards (WCAG 2.0/2.1/2.2, which remain the legal basis worldwide) and will add WCAG 3 scoring when the standard and axe-core support land.",
+    benefit: "You can't be caught out: everything this tool reports maps to the standards auditors and regulations actually use today. WCAG 2.2 AA conformance is also the expected on-ramp to WCAG 3 — nothing you fix now is wasted.",
+    example: "A client asks 'are we WCAG 3 ready?'. The honest answer this tool supports: 'WCAG 3 is a draft; we conform to WCAG 2.2 AA, which is the current requirement and the foundation WCAG 3 builds on.'",
+  },
+  {
     icon: "⚖", title: "What automation can't do",
     what: "axe-core's rules are conservative by design: they only report what is provably wrong, so there are near-zero false positives.",
     benefit: "You can trust every automated finding — but a clean scan is NOT proof of accessibility. Roughly half of WCAG needs human judgment.",
@@ -1351,7 +1447,7 @@ let helpRendered = false;
 function renderHelp() {
   if (helpRendered) return;
   helpRendered = true;
-  for (const topic of HELP_TOPICS) {
+  for (const topic of HELP_TOPICS.map(localizeTopic)) {
     const det = document.createElement("details");
     det.className = "help-card";
     const sum = document.createElement("summary");
@@ -1375,4 +1471,208 @@ function renderHelp() {
     det.appendChild(body);
     helpListEl.appendChild(det);
   }
+}
+
+/* ---------------- Arabic content (manual tests + help) ---------------- */
+
+const MANUAL_AR = {
+  keyboard: {
+    title: "التنقّل بلوحة المفاتيح فقط",
+    why: "كثير من المستخدمين لا يستخدمون الفأرة إطلاقاً. يجب أن يكون كل شيء قابلاً للوصول والتشغيل بلوحة المفاتيح وحدها، دون أي فخاخ.",
+    helperLabel: "ترقيم مواضع التنقل",
+    questions: [
+      ["هل استطعت الوصول إلى كل عنصر تفاعلي باستخدام Tab فقط (والأسهم داخل المكوّنات)؟", "بعض العناصر لا يمكن الوصول إليها بلوحة المفاتيح"],
+      ["هل استطعت تفعيل كل عنصر بمفتاح Enter أو المسافة؟", "عناصر لا يمكن تفعيلها بلوحة المفاتيح"],
+      ["هل استطعت دائماً الخروج بـ Tab من كل مكوّن — دون فخ لوحة مفاتيح (نوافذ منبثقة، مشغّلات)؟", "تم رصد فخ لوحة مفاتيح"],
+      ["هل كل تفاعل يعتمد على الفأرة أو التمرير متاح أيضاً بلوحة المفاتيح؟", "تفاعل يعمل بالفأرة فقط دون بديل للوحة المفاتيح"],
+    ],
+  },
+  "focus-visible": {
+    title: "مؤشر تركيز مرئي",
+    why: "مستخدمو لوحة المفاتيح المبصرون يجب أن يروا دائماً أي عنصر عليه التركيز.",
+    helperLabel: "ترقيم مواضع التنقل",
+    questions: [
+      ["هل أظهر كل موضع تنقل مؤشر تركيز واضحاً (إطار، حلقة، خط سفلي…)؟", "عناصر تستقبل التركيز دون مؤشر مرئي"],
+      ["هل كان المؤشر واضحاً على الخلفية في كل أقسام الصفحة؟", "تباين مؤشر التركيز غير كافٍ في بعض المناطق"],
+    ],
+  },
+  "focus-order": {
+    title: "ترتيب تركيز وقراءة منطقي",
+    why: "يجب أن يتبع التركيز التدفق البصري للقراءة، وإلا ارتبك مستخدمو لوحة المفاتيح وقارئات الشاشة.",
+    helperLabel: "ترقيم مواضع التنقل",
+    questions: [
+      ["هل تتبع أرقام مواضع التنقل الترتيب البصري لقراءة الصفحة؟", "ترتيب التركيز لا يطابق الترتيب البصري"],
+      ["هل لا توجد قفزات مفاجئة (إلى التذييل أو مناطق خارج الشاشة أو محتوى أعيد ترتيبه بـ CSS)؟", "قفزة تركيز غير متوقعة"],
+    ],
+  },
+  headings: {
+    title: "بنية العناوين",
+    why: "مستخدمو قارئات الشاشة يتنقلون عبر العناوين. يجب أن تصف البنية الصفحة كفهرس محتويات.",
+    helperLabel: "عرض مخطط العناوين",
+    questions: [
+      ["هل يوجد h1 واحد بالضبط يصف غرض الصفحة؟", "h1 مفقود أو متعدد أو غير واضح"],
+      ["هل تتداخل مستويات العناوين دون تخطٍّ (h2 ثم h3، وليس h2 ثم h4)؟", "تخطٍّ في مستويات العناوين"],
+      ["هل يصف كل عنوان قسمه بدقة (لا عناوين غامضة أو نص عريض يتظاهر بأنه عنوان)؟", "عناوين غير واضحة أو زائفة"],
+    ],
+  },
+  landmarks: {
+    title: "المعالم ورابط التخطي",
+    why: "المعالم (header, nav, main, footer) ورابط التخطي يتيحان لمستخدمي التقنيات المساعدة تجاوز المحتوى المتكرر.",
+    helperLabel: "تحديد المعالم",
+    questions: [
+      ["هل المحتوى الرئيسي داخل معلم main واحد بالضبط؟", "المحتوى ليس داخل معلم main واحد"],
+      ["هل أول موضع Tab هو رابط «تخطّ إلى المحتوى» يعمل فعلاً؟", "لا يوجد رابط تخطٍّ يعمل"],
+      ["هل تحمل المعالم المتكررة (مثل قائمتي تنقل) تسميات مميِّزة؟", "معالم مكررة دون تسميات"],
+    ],
+  },
+  "alt-quality": {
+    title: "جودة النص البديل للصور",
+    why: "الفحص الآلي يكتشف غياب سمة alt، لكنه لا يحكم على جودة النص نفسه.",
+    helperLabel: "عرض النصوص البديلة",
+    questions: [
+      ["هل ينقل النص البديل لكل صورة معلوماتية المعلومات نفسها التي تنقلها الصورة؟", "النص البديل لا ينقل معلومات الصورة"],
+      ["هل الصور الزخرفية البحتة معلَّمة بـ alt فارغ (تظهر كـ decorative)؟", "صورة زخرفية تُقرأ على قارئ الشاشة"],
+      ["هل تصف الصور الوظيفية (داخل روابط/أزرار) الإجراء لا الشكل؟", "النص البديل لصورة وظيفية يصف الشكل لا الإجراء"],
+    ],
+  },
+  zoom: {
+    title: "التكبير 200% وإعادة التدفق",
+    why: "ضعاف البصر يكبّرون الصفحة. يجب أن يبقى المحتوى صالحاً للاستخدام دون تمرير أفقي أو تداخل.",
+    questions: [
+      ["عند تكبير 200% (⌘+ / Ctrl+)، هل بقي كل النص والوظائف متاحاً — دون اقتصاص أو تداخل؟", "المحتوى يتعطل عند تكبير 200%"],
+      ["عند ~400% في نافذة عادية (يعادل عرض 320 بكسل)، هل يعاد تدفق المحتوى في عمود واحد دون تمرير أفقي؟", "لا إعادة تدفق عند عرض يعادل 320 بكسل"],
+    ],
+  },
+  "screen-reader": {
+    title: "اختبار قارئ الشاشة",
+    why: "الاختبار الحاسم: هل تكون الصفحة مفهومة عند سماعها بدل رؤيتها؟ (ماك: ⌘F5 لتشغيل VoiceOver. ويندوز: NVDA أو Narrator.)",
+    questions: [
+      ["بالقراءة من الأعلى، هل كان كل ما يُنطق مفهوماً وبترتيب سليم؟", "المحتوى المنطوق مربك أو خارج الترتيب"],
+      ["هل أعلنت كل عناصر التحكم دورها واسمها وحالتها بشكل صحيح («زر»، «خانة اختيار، محددة»)؟", "عناصر تعلن دوراً/اسماً/حالة خاطئة أو ناقصة"],
+      ["هل أُعلنت التحديثات الديناميكية (تنبيهات، أخطاء تحقق، محتوى مباشر)؟", "تحديث ديناميكي صامت على قارئات الشاشة"],
+    ],
+  },
+  motion: {
+    title: "الحركة والرسوم والوميض",
+    why: "الحركة التلقائية تشتت؛ والوميض فوق 3 هرتز قد يسبب نوبات صرع.",
+    questions: [
+      ["هل كل حركة تلقائية تتجاوز 5 ثوانٍ لها زر إيقاف/إيقاف مؤقت؟", "حركة تلقائية دون زر إيقاف"],
+      ["هل لا يومض أي محتوى أكثر من 3 مرات في الثانية؟", "محتوى يومض فوق 3 هرتز"],
+      ["هل تُحترم تفضيلات «تقليل الحركة» في نظام التشغيل (prefers-reduced-motion)؟", "تجاهل تفضيل تقليل الحركة"],
+    ],
+  },
+  forms: {
+    title: "تسميات النماذج ومعالجة الأخطاء",
+    why: "الفحص الآلي يتأكد من وجود التسميات؛ الإنسان وحده يحكم إن كانت الأخطاء مفهومة وقابلة للتصحيح.",
+    questions: [
+      ["عند إرسال بيانات خاطئة، هل توصف الأخطاء نصاً (لا لوناً فقط) موضحةً ما الخطأ وكيف يُصحح؟", "أخطاء غير واضحة أو تُنقل باللون فقط"],
+      ["هل ينتقل التركيز إلى أول حقل خاطئ (أو يُعلن عنه)؟", "الأخطاء لا تُلفت انتباه المستخدم"],
+      ["هل تُحدد الحقول الإلزامية قبل الإرسال لا بعد الفشل فقط؟", "الحقول الإلزامية غير محددة مسبقاً"],
+    ],
+  },
+};
+
+const HELP_AR = {
+  "Scan this page": {
+    title: "فحص هذه الصفحة",
+    what: "يحقن محرك axe-core (المحرك مفتوح المصدر خلف axe DevTools وLighthouse) في الصفحة ويجري تدقيق WCAG آلياً.",
+    benefit: "خلال ثوانٍ تحصل على كل مخالفة قابلة للاكتشاف آلياً، مرتبةً حسب الخطورة، مع الكود المخالف والشرح ورابط الإصلاح.",
+    example: "ورثت صفحة قديمة. فحص واحد يخبرك أن فيها 3 مشاكل حرجة (تسميات نماذج مفقودة، صور بلا نص بديل) فتعرف من أين تبدأ بالضبط.",
+  },
+  "Rule set picker & best practices": {
+    title: "اختيار مجموعة القواعد وأفضل الممارسات",
+    what: "القائمة تحصر الفحص في مستوى مطابقة WCAG (من 2.0 A حتى 2.2 AA) أو تشغّل كل القواعد. الخيار الإضافي يضيف قواعد axe الاسترشادية غير الملزمة في WCAG. اختيارك يُحفظ كافتراضي.",
+    benefit: "طابق الفحص مع متطلبك القانوني أو التعاقدي الفعلي — دون ضجيج من قواعد لست مساءلاً عنها.",
+    example: "جهة حكومية تشترط WCAG 2.1 AA. اختر «2.1 AA» وافحص، فيطابق التقرير ما سيدققه المراجع واحداً لواحد.",
+  },
+  "Record flow (user flow analysis)": {
+    title: "تسجيل مسار الاستخدام (تحليل الرحلة)",
+    what: "أثناء التسجيل يعاد فحص الصفحة دورياً وبعد كل انتقال، وتُدمج النتائج في تقرير واحد بلا تكرار، مع وسم كل نتيجة بالصفحة التي جاءت منها مثل [/cart].",
+    benefit: "الفحص الواحد لا يرى إلا الصفحة كما تبدو الآن. المسارات تلتقط ما يختبئ في الحالات المؤقتة: القوائم المفتوحة، النوافذ المنبثقة، رسائل أخطاء النماذج، وصفحات لاحقة في الرحلة.",
+    example: "تدقيق صفحة دفع: اضغط ⏺ في صفحة المنتج → افتح قائمة المقاسات وأضف للسلة → السلة → الدفع → أرسل النموذج فارغاً → اضغط ■. تقرير واحد يغطي الحالات الخمس.",
+  },
+  "Highlighting & Inspect": {
+    title: "التظليل والفحص في Elements",
+    what: "انقر أي مقتطف HTML في نتيجة لتحديد العنصر في الصفحة. «تظليل الكل» يحدد كل العناصر المخالفة دفعة واحدة بألوان حسب الخطورة. «Inspect» ينتقل للعنصر في لوحة Elements.",
+    benefit: "يحوّل سطراً مجرداً في تقرير إلى شيء تراه وتصلحه.",
+    example: "نتيجة تقول «الروابط تحتاج نصاً مميِّزاً» — النقر يكشف أن السبب رابط أيقونة خفي في التذييل ما كنت لتجده بقراءة التقرير.",
+  },
+  "Contrast checker": {
+    title: "فاحص التباين",
+    what: "قطّارة تلتقط أي بكسل على شاشتك — اختر لون النص ولون الخلفية لتحصل على نسبة تباين WCAG مع شارات نجاح/فشل لمستويي AA وAAA.",
+    benefit: "الفحص الآلي لا يقيس النص فوق الصور أو التدرجات. القطّارة تعمل في أي مكان — حتى على تصميم Figma في نافذة أخرى.",
+    example: "مصمم يقترح رمادياً #999 على أبيض. نقرتان تظهران 2.85:1 — يفشل في AA (المطلوب 4.5:1). اكتُشف قبل الإطلاق.",
+  },
+  "Export (JSON / CSV / HTML)": {
+    title: "التصدير (JSON / CSV / HTML / PDF)",
+    what: "ينزّل آخر فحص — مع أحكام الاختبارات اليدوية ونتائجها ومقترحات الإصلاح لكل عنصر — بصيغة JSON خام أو CSV جدولي أو تقرير HTML مستقل أو PDF عبر نافذة الطباعة.",
+    benefit: "تصبح النتائج ملفات قابلة للمشاركة: أرفق التقرير بتذكرة، أو استورد CSV في جدول، أو قارن JSON في CI.",
+    example: "يسأل مدير المنتج «ما مدى سوء الوضع؟». ترسل تقرير HTML — الإجماليات أعلاه وكل مخالفة مشروحة مع إصلاحها المقترح — دون حاجته للإضافة.",
+  },
+  "Scan history & NEW badges": {
+    title: "سجل الفحوصات وشارات NEW",
+    what: "يُحفظ آخر فحص لكل رابط محلياً. الفحص التالي يعرض «س جديدة · ص أُصلحت» مقارنةً بالسابق مع مخطط اتجاه عبر الزمن، والنتائج غير المرصودة سابقاً تحمل شارة NEW.",
+    benefit: "يجيب عن السؤالين المهمين أثناء الإصلاح: هل أصلح تعديلي المشكلة فعلاً؟ وهل كسرت شيئاً آخر؟",
+    example: "أصلحت 5 مشاكل نص بديل وأعدت الفحص: «0 جديدة · 5 أُصلحت». بعد أسبوع يُظهر مكوّن زميلك «3 جديدة» — انحدار اكتُشف يوم حدوثه.",
+  },
+  "Stale results banner": {
+    title: "تنبيه النتائج القديمة",
+    what: "بعد الفحص يراقب مراقبٌ الصفحة. إذا تغيّر DOM أو انتقلت الصفحة، يظهر تنبيه بأن النتائج قد تكون قديمة.",
+    benefit: "يمنع الخطأ الكلاسيكي: تصحيح مشكلة بالاستناد إلى تقرير قديم بعد أن أعادت الصفحة الرسم.",
+    example: "تفحص ثم تسجّل الدخول في الصفحة. يظهر التنبيه مذكّراً أن واجهة ما بعد الدخول تحتاج فحصها الخاص.",
+  },
+  "Guided manual tests (wizards)": {
+    title: "الاختبارات اليدوية الموجّهة (المعالج التفاعلي)",
+    what: "عشرة اختبارات موجّهة لما لا تستطيع الآلة الحكم عليه. كلٌّ يعمل كمعالج: سؤال نعم/لا واحد في كل خطوة، والحكم يُحسب من إجاباتك. كل «لا» تُسجَّل كنتيجة محددة — مع ملاحظة اختيارية وعنصر تختاره من الصفحة مباشرة.",
+    benefit: "الأدوات الآلية تلتقط 30–50% من WCAG فقط. المعالجات تنظّم الباقي بحيث يجري غيرُ الخبير تدقيقاً موثوقاً، وتظهر النتائج في التصدير بجانب النتائج الآلية.",
+    example: "في معالج لوحة المفاتيح تجيب «لا» على «هل خرجت بـ Tab من كل مكوّن؟»، تنقر 📌 ثم تنقر النافذة المنبثقة العالقة — فيتضمن التقرير «فخ لوحة مفاتيح» مع محدد ذلك العنصر.",
+  },
+  "Fix suggestions, Preview fix & AI fix": {
+    title: "مقترحات الإصلاح والمعاينة الحية وإصلاح الذكاء الاصطناعي",
+    what: "تعرض النتائج مقتطفاً مصححاً جاهزاً للصق مبنياً من HTML الفعلي للعنصر (HTML أو React أو Vue — من الإعدادات). فشل التباين يحصل على أقرب لون ناجح محسوب. «معاينة الإصلاح» تطبّق التغيير حياً في الصفحة (مع تراجع)، و«⚡ إصلاح تلقائي» يطبّق كل الإصلاحات الآلية دفعة واحدة. «🤖 إصلاح AI» الاختياري يرسل المقتطف المخالف وحده إلى Claude API بمفتاحك الخاص.",
+    benefit: "معظم الفاحصات تتوقف عند «هذا ما انكسر» — هنا تكتمل الحلقة إلى «هذا هو الإصلاح، شاهده يعمل، ثم الصقه».",
+    example: "نتيجة تباين تقول إن #9e9e9e يفشل على الأبيض. المقترح يعرض color: #757575 (نجاح 4.61:1 بنفس الدرجة اللونية). المعاينة تلوّن الصفحة الحية، وإعادة الفحص تنجح، فتنسخ سطر CSS الواحد إلى ملفك.",
+  },
+  "Keyboard shortcuts & options": {
+    title: "اختصارات لوحة المفاتيح والإعدادات",
+    what: "في اللوحة: S فحص، R تسجيل/إيقاف المسار، X مسح التظليل، C التباين، 1/2/3 تبديل التبويبات. صفحة الإعدادات (زر الفأرة الأيمن على أيقونة الإضافة ← Options) تضبط مستوى WCAG الافتراضي وإطار عمل المقتطفات وفاصل فحص المسار واللغة.",
+    benefit: "استخدام يومي أسرع، وافتراضيات تناسب طريقة عمل فريقك.",
+    example: "اختر العربية في الإعدادات فتنقلب اللوحة إلى RTL بمحتوى مترجم بالكامل.",
+  },
+  "WCAG 3.0 readiness": {
+    title: "الجاهزية لـ WCAG 3.0",
+    what: "لا يزال WCAG 3.0 («سيلفر») مسودة لدى W3C — لا أداة تستطيع الفحص وفقه شرعياً بعد، وليس في axe-core قواعد WCAG 3 لأن معايير النجاح لم تُعتمد. تتبع A11y Lens المعايير المستقرة (WCAG 2.0/2.1/2.2 وهي الأساس القانوني عالمياً) وستضيف WCAG 3 عند اعتماده ودعمه في axe-core.",
+    benefit: "لن تُفاجأ: كل ما تبلغ عنه الأداة يطابق المعايير التي يعتمدها المدققون والأنظمة اليوم، ومطابقة WCAG 2.2 AA هي الممر المتوقع نحو WCAG 3 — لا شيء تصلحه الآن يضيع.",
+    example: "يسأل عميل «هل نحن جاهزون لـ WCAG 3؟». الإجابة الأمينة التي تدعمها الأداة: «WCAG 3 مسودة؛ نطابق WCAG 2.2 AA وهو المطلوب حالياً والأساس الذي يبني عليه WCAG 3».",
+  },
+  "What automation can't do": {
+    title: "ما لا تستطيعه الأتمتة",
+    what: "قواعد axe-core متحفظة عمداً: لا تبلغ إلا عما يمكن إثبات خطئه، فالإنذارات الكاذبة شبه معدومة.",
+    benefit: "يمكنك الوثوق بكل نتيجة آلية — لكن الفحص الآلي النظيف ليس دليلاً على إتاحة الصفحة؛ نحو نصف WCAG يحتاج حكماً بشرياً.",
+    example: "alt=\"image123.jpg\" يجتاز الفحص الآلي (السمة موجودة) لكنه يفشل مع مستخدم حقيقي. لهذا وُجد تبويب الاختبارات اليدوية — شغّل الاثنين قبل وصف صفحة بأنها متاحة.",
+  },
+};
+
+function localizeTest(test) {
+  if (lang !== "ar") return test;
+  const ar = MANUAL_AR[test.id];
+  if (!ar) return test;
+  return {
+    ...test,
+    title: ar.title || test.title,
+    why: ar.why || test.why,
+    helper: test.helper ? { ...test.helper, label: ar.helperLabel || test.helper.label } : undefined,
+    questions: test.questions.map((q, i) =>
+      ar.questions && ar.questions[i]
+        ? { q: ar.questions[i][0], finding: ar.questions[i][1] }
+        : q
+    ),
+  };
+}
+
+function localizeTopic(topic) {
+  if (lang !== "ar") return topic;
+  const ar = HELP_AR[topic.title];
+  if (!ar) return topic;
+  return { ...topic, title: ar.title, what: ar.what, benefit: ar.benefit, example: ar.example };
 }

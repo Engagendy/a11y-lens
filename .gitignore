@@ -3,3 +3,4 @@ node_modules/
 ci/node_modules/
 ci/a11y-baseline.json
 store/*.zip
+dist/

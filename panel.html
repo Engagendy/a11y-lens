@@ -28,6 +28,7 @@
         <button class="export" data-format="json">JSON</button>
         <button class="export" data-format="csv">CSV</button>
         <button class="export" data-format="html">HTML</button>
+        <button class="export" data-format="pdf">PDF</button>
         <button class="export" data-format="issues">Issues</button>
       </span>
     </header>
@@ -59,6 +60,11 @@
       <span class="pill minor" id="countMinor">0 minor</span>
       <span class="pill passes" id="countPasses">0 passed</span>
       <span id="diff" class="diff"></span>
+    </div>
+
+    <div id="historyWrap" hidden>
+      <canvas id="historyChart" height="72"></canvas>
+      <div id="historyLegend"></div>
     </div>
 
     <main id="results">

@@ -1,1 +1,3 @@
-chrome.devtools.panels.create("A11y Lens", "icons/icon48.png", "panel.html");
+// Works on Chromium (chrome.*) and Firefox (browser.*, promise-based).
+const EXT = globalThis.browser || globalThis.chrome;
+EXT.devtools.panels.create("A11y Lens", "icons/icon48.png", "panel.html");

@@ -131,18 +131,26 @@ function highlightAllInPage(list) {
       el.style.setProperty("outline-offset", "1px", "important");
     }
   }
-  // Clicking a highlighted element reports it back to the panel instead of
-  // activating it (links won't navigate while highlights are on).
-  if (window.__a11yLensRevHandler) document.removeEventListener("click", window.__a11yLensRevHandler, true);
-  const rev = (e) => {
-    const t = e.target.closest && e.target.closest("[data-a11y-lens-sel]");
-    if (!t) return;
-    e.preventDefault();
-    e.stopPropagation();
-    window.__a11yLensClicked = t.getAttribute("data-a11y-lens-sel");
-  };
-  window.__a11yLensRevHandler = rev;
-  document.addEventListener("click", rev, true);
+  // Intercept every activation path (SPA routers navigate on pointerdown/
+  // mousedown before click). window-capture fires before any page handler.
+  if (window.__a11yLensRevHandlers) {
+    for (const [type, fn] of Object.entries(window.__a11yLensRevHandlers)) {
+      window.removeEventListener(type, fn, true);
+    }
+  }
+  window.__a11yLensRevHandlers = {};
+  for (const type of ["pointerdown", "mousedown", "auxclick", "click"]) {
+    const fn = (e) => {
+      const path = e.composedPath ? e.composedPath() : [e.target];
+      const hit = path.find((n) => n && n.getAttribute && n.hasAttribute("data-a11y-lens-sel"));
+      if (!hit) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (type === "click") window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
+    };
+    window.__a11yLensRevHandlers[type] = fn;
+    window.addEventListener(type, fn, true);
+  }
 }
 
 function clearInPage() {
@@ -159,9 +167,11 @@ function clearInPage() {
   });
   document.querySelectorAll(".__a11y_lens_overlay").forEach((el) => el.remove());
   document.querySelectorAll("[data-a11y-lens-sel]").forEach((el) => el.removeAttribute("data-a11y-lens-sel"));
-  if (window.__a11yLensRevHandler) {
-    document.removeEventListener("click", window.__a11yLensRevHandler, true);
-    window.__a11yLensRevHandler = null;
+  if (window.__a11yLensRevHandlers) {
+    for (const [type, fn] of Object.entries(window.__a11yLensRevHandlers)) {
+      window.removeEventListener(type, fn, true);
+    }
+    window.__a11yLensRevHandlers = null;
   }
   window.__a11yLensClicked = null;
   if (window.__a11yLensPickHandler) {
@@ -833,16 +843,26 @@ function dlsHighlightInPage(data) {
     if (!inDls) mark(el, "DLS: not in a DLS component");
   }
 
-  if (window.__a11yLensRevHandler) document.removeEventListener("click", window.__a11yLensRevHandler, true);
-  const rev = (e) => {
-    const t = e.target.closest && e.target.closest("[data-a11y-lens-sel]");
-    if (!t) return;
-    e.preventDefault();
-    e.stopPropagation();
-    window.__a11yLensClicked = t.getAttribute("data-a11y-lens-sel");
-  };
-  window.__a11yLensRevHandler = rev;
-  document.addEventListener("click", rev, true);
+  // Intercept every activation path (SPA routers navigate on pointerdown/
+  // mousedown before click). window-capture fires before any page handler.
+  if (window.__a11yLensRevHandlers) {
+    for (const [type, fn] of Object.entries(window.__a11yLensRevHandlers)) {
+      window.removeEventListener(type, fn, true);
+    }
+  }
+  window.__a11yLensRevHandlers = {};
+  for (const type of ["pointerdown", "mousedown", "auxclick", "click"]) {
+    const fn = (e) => {
+      const path = e.composedPath ? e.composedPath() : [e.target];
+      const hit = path.find((n) => n && n.getAttribute && n.hasAttribute("data-a11y-lens-sel"));
+      if (!hit) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (type === "click") window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
+    };
+    window.__a11yLensRevHandlers[type] = fn;
+    window.addEventListener(type, fn, true);
+  }
 
   return count;
 }

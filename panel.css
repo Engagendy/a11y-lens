@@ -502,3 +502,11 @@ select, option, input[type="text"], input[type="password"], input[type="number"]
   padding: 1px 5px;
   margin-inline-start: 4px;
 }
+
+.finding-flash {
+  animation: findingFlash 1.6s ease-out 1;
+}
+@keyframes findingFlash {
+  0%, 60% { background: color-mix(in srgb, #b68a35 28%, transparent); }
+  100% { background: transparent; }
+}

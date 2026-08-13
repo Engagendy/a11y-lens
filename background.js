@@ -126,10 +126,23 @@ function highlightAllInPage(list) {
     const el = deepQ(sel);
     if (el) {
       el.setAttribute("data-a11y-lens", impact);
+      el.setAttribute("data-a11y-lens-sel", sel);
       el.style.setProperty("outline", `3px solid ${colors[impact]}`, "important");
       el.style.setProperty("outline-offset", "1px", "important");
     }
   }
+  // Clicking a highlighted element reports it back to the panel instead of
+  // activating it (links won't navigate while highlights are on).
+  if (window.__a11yLensRevHandler) document.removeEventListener("click", window.__a11yLensRevHandler, true);
+  const rev = (e) => {
+    const t = e.target.closest && e.target.closest("[data-a11y-lens-sel]");
+    if (!t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.__a11yLensClicked = t.getAttribute("data-a11y-lens-sel");
+  };
+  window.__a11yLensRevHandler = rev;
+  document.addEventListener("click", rev, true);
 }
 
 function clearInPage() {
@@ -145,6 +158,12 @@ function clearInPage() {
     el.style.removeProperty("outline-offset");
   });
   document.querySelectorAll(".__a11y_lens_overlay").forEach((el) => el.remove());
+  document.querySelectorAll("[data-a11y-lens-sel]").forEach((el) => el.removeAttribute("data-a11y-lens-sel"));
+  if (window.__a11yLensRevHandler) {
+    document.removeEventListener("click", window.__a11yLensRevHandler, true);
+    window.__a11yLensRevHandler = null;
+  }
+  window.__a11yLensClicked = null;
   if (window.__a11yLensPickHandler) {
     document.removeEventListener("click", window.__a11yLensPickHandler, true);
     document.body.style.cursor = "";
@@ -712,10 +731,25 @@ function dlsHighlightInPage(data) {
   document.querySelectorAll(".__a11y_lens_overlay").forEach((el) => el.remove());
   let count = 0;
   const MAX = 60;
+  const cssPathRev = (el) => {
+    const parts = [];
+    let cur = el;
+    for (let depth = 0; cur && cur.nodeType === 1 && depth < 5; depth++) {
+      if (cur.id) { parts.unshift("#" + CSS.escape(cur.id)); break; }
+      const tag = cur.tagName.toLowerCase();
+      if (tag === "body" || tag === "html") { parts.unshift(tag); break; }
+      const parent = cur.parentElement;
+      const idx = parent ? [...parent.children].indexOf(cur) + 1 : 1;
+      parts.unshift(`${tag}:nth-child(${idx})`);
+      cur = parent;
+    }
+    return parts.join(" > ");
+  };
   const mark = (el, label) => {
     if (count >= MAX || !el.getClientRects().length) return;
     count++;
     el.setAttribute("data-a11y-lens", "dls");
+    el.setAttribute("data-a11y-lens-sel", "dls:" + cssPathRev(el));
     el.style.setProperty("outline", "3px dashed #b68a35", "important");
     el.style.setProperty("outline-offset", "2px", "important");
     const r = el.getBoundingClientRect();
@@ -799,6 +833,17 @@ function dlsHighlightInPage(data) {
     if (!inDls) mark(el, "DLS: not in a DLS component");
   }
 
+  if (window.__a11yLensRevHandler) document.removeEventListener("click", window.__a11yLensRevHandler, true);
+  const rev = (e) => {
+    const t = e.target.closest && e.target.closest("[data-a11y-lens-sel]");
+    if (!t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.__a11yLensClicked = t.getAttribute("data-a11y-lens-sel");
+  };
+  window.__a11yLensRevHandler = rev;
+  document.addEventListener("click", rev, true);
+
   return count;
 }
 
@@ -854,6 +899,12 @@ EXT.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return { result: await exec(tabId, HELPERS[msg.name]) };
       case "pickStart":
         return { result: await exec(tabId, pickStartInPage) };
+      case "clickedCheck":
+        return { result: await exec(tabId, () => {
+          const v = window.__a11yLensClicked || null;
+          window.__a11yLensClicked = null;
+          return v;
+        }) };
       case "pickCheck":
         return { result: await exec(tabId, pickCheckInPage) };
       case "applyFix":

@@ -243,6 +243,7 @@ async function runScanFlow() {
 }
 
 function resetAll() {
+  stopClickWatch();
   clearHighlights();
   lastReport = null;
   lastDlsExport = null;
@@ -429,6 +430,7 @@ function render(report) {
     for (const { node, count } of groups.values()) {
       const nodeEl = document.createElement("div");
       nodeEl.className = "node";
+      nodeEl.dataset.sel = node.target[0];
 
       const code = document.createElement("code");
       const inIframe = node.target.length > 1;
@@ -687,10 +689,67 @@ async function highlightAll() {
     await bg("highlightAll", { items });
     // In a DLS-inclusive mode, layer the gold DLS gap outlines on top.
     if (modeSelect.value !== "a11y" && lastDlsExport) await bg("dlsHighlight");
+    startClickWatch();
   } catch (_) {}
 }
 
+/* Reverse navigation: clicking a highlighted element on the page jumps the
+   panel to the matching finding. */
+let clickWatch = null;
+
+function startClickWatch() {
+  clearInterval(clickWatch);
+  clickWatch = setInterval(async () => {
+    try {
+      const sel = await bg("clickedCheck");
+      if (sel) jumpToFinding(sel);
+    } catch (_) {
+      clearInterval(clickWatch);
+    }
+  }, 400);
+}
+
+function stopClickWatch() {
+  clearInterval(clickWatch);
+}
+
+function flash(el) {
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.remove("finding-flash");
+  void el.offsetWidth; // restart the animation
+  el.classList.add("finding-flash");
+}
+
+function jumpToFinding(sel) {
+  if (sel.startsWith("dls:")) {
+    // DLS gap → open the DLS tab and flash the matching affected-element entry
+    showView("dls");
+    const plain = sel.slice(4);
+    for (const code of dlsReportEl.querySelectorAll(".dls-els code")) {
+      if (code.textContent === plain) {
+        const row = code.closest(".dls-row") || code;
+        row.open = true;
+        flash(row);
+        return;
+      }
+    }
+    flash(dlsReportEl);
+    return;
+  }
+  showView("auto");
+  document.getElementById("resultsSection").open = true;
+  for (const nodeEl of resultsEl.querySelectorAll(".node")) {
+    if (nodeEl.dataset.sel === sel) {
+      const card = nodeEl.closest("details.violation");
+      if (card) { card.hidden = false; card.open = true; }
+      flash(nodeEl);
+      return;
+    }
+  }
+}
+
 function clearHighlights() {
+  stopClickWatch();
   bg("clearHighlights").catch(() => {});
 }
 
@@ -1618,7 +1677,7 @@ function toHtml(report, shot, dlsShot) {
     </section>`).join("");
 
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><title>A11y Lens report — ${escHtml(report.url)}</title></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><base target="_blank"><title>A11y Lens report — ${escHtml(report.url)}</title></head>
 <body style="font:14px/1.5 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;background:#fff;color:#1a1a1a">
   <h1 style="font-size:22px">🔍 A11y Lens report</h1>
   <p><b>Page:</b> ${escHtml(report.url)}<br>
@@ -2372,6 +2431,7 @@ function renderDlsReport(r) {
   gapsBtn.addEventListener("click", async () => {
     try {
       const n = await bg("dlsHighlight");
+      startClickWatch();
       statusEl.textContent = dt("gapsShown", n);
     } catch (err) {
       statusEl.textContent = "Highlight failed: " + (err?.message || err);
@@ -2424,7 +2484,7 @@ async function exportDls(format) {
        <img src="${shot}" style="max-width:100%;border:1px solid #ddd;border-radius:6px">`
     : "";
   const html = `<!DOCTYPE html>
-<html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><title>${escHtml(dt("reportTitle"))}</title></head>
+<html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><base target="_blank"><title>${escHtml(dt("reportTitle"))}</title></head>
 <body style="font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;background:#fff;color:#1a1a1a">
   <p><b>${escHtml(url)}</b><br>${escHtml(lastDlsExport.scannedAt)}</p>
   ${dlsSectionHtml()}

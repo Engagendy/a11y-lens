@@ -1363,7 +1363,52 @@ async function exportReport(format) {
     download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport()));
   } else if (format === "jira") {
     download(base + "-jira.csv", "text/csv", toJiraCsv(lastReport));
+  } else if (format === "azure") {
+    download(base + "-azure.csv", "text/csv", toAzureCsv(lastReport));
   }
+}
+
+// Azure DevOps work-item CSV: Boards → Queries → Import Work Items.
+// Bug + Title + Repro Steps + Priority + Tags imports on every process template.
+function toAzureCsv(report) {
+  const prio = { critical: 1, serious: 2, moderate: 3, minor: 4 };
+  const fw = settings.framework || "html";
+  const esc = (s) => escHtml(s);
+  const rows = [["Work Item Type", "Title", "Repro Steps", "Priority", "Tags"]];
+  for (const v of report.violations) {
+    const els = v.nodes.slice(0, 10).map((n) =>
+      `<li><code>${esc(n.target.join(" "))}</code><br><pre>${esc(n.html)}</pre></li>`).join("");
+    const fix = A11yFixes.suggestFix(v.id, v.nodes[0], fw);
+    const repro =
+      `<p>${esc(v.description)}</p>` +
+      `<p>WCAG reference: <a href="${esc(v.helpUrl)}">${esc(v.helpUrl)}</a></p>` +
+      `<p>Affected elements (${v.nodeTotal} total, first ${Math.min(10, v.nodes.length)} shown):</p><ul>${els}</ul>` +
+      (fix ? `<p><b>Suggested fix:</b></p><pre>${esc(fix.snippet)}</pre><p>${esc(fix.note)}</p>` : "");
+    rows.push([
+      "Bug",
+      "[A11y] " + v.help + " — " + v.nodeTotal + " element(s)",
+      repro,
+      String(prio[v.impact] || 3),
+      "accessibility; a11y-lens; " + v.id,
+    ]);
+  }
+  if (lastDlsExport) {
+    for (const r of lastDlsExport.rows) {
+      if (r.verdict === "pass") continue;
+      const els = (r.elements || []).map((e) =>
+        `<li><code>${esc(e.sel)}</code> — ${esc(e.info)}</li>`).join("");
+      rows.push([
+        "Bug",
+        "[UAE DLS] " + r.label.replace(" ↗", "") + " — " + r.verdict.toUpperCase(),
+        `<p>${esc(r.detail)}</p>` + (els ? `<ul>${els}</ul>` : "") +
+          (r.fix ? `<p><b>Suggested fix:</b></p><pre>${esc(r.fix)}</pre>` : "") +
+          (r.doc ? `<p>Standard: <a href="${esc(r.doc)}">${esc(r.doc)}</a></p>` : ""),
+        r.verdict === "fail" ? "2" : "3",
+        "accessibility; a11y-lens; uae-dls",
+      ]);
+    }
+  }
+  return rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
 }
 
 // Jira bulk-import CSV: one issue per violated rule (plus DLS gaps when present).

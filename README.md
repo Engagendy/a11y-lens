@@ -72,6 +72,9 @@ engine behind axe DevTools.
 - **Jira export** — one-click CSV formatted for Jira's bulk importer: one issue
   per violated rule (and per DLS gap) with priority mapped from impact, labels,
   affected elements, and the suggested fix in Jira {code} markup
+- **Azure DevOps export** — CSV for Boards → Queries → Import Work Items: Bug
+  work items with HTML Repro Steps, impact→Priority (1–4), and tags; works on
+  every ADO process template
 - **Identical-element grouping** — repeated markup (40 copies of the same card)
   collapses to one entry with an "×N identical" badge: one fix covers all
 - **Built-in Help tab** — every feature explained inside the panel with what it

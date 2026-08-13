@@ -69,6 +69,11 @@ engine behind axe DevTools.
 - **Issues export** — download findings as GitHub-ready markdown, one issue
   section per rule with suggested fixes included; the CI companion prints the
   same suggestions via `--suggest`
+- **Jira export** — one-click CSV formatted for Jira's bulk importer: one issue
+  per violated rule (and per DLS gap) with priority mapped from impact, labels,
+  affected elements, and the suggested fix in Jira {code} markup
+- **Identical-element grouping** — repeated markup (40 copies of the same card)
+  collapses to one entry with an "×N identical" badge: one fix covers all
 - **Built-in Help tab** — every feature explained inside the panel with what it
   does, why it helps, and a concrete example scenario
 - **User flow analysis** — hit ⏺ Record flow, then navigate and interact
@@ -103,7 +108,7 @@ engine behind axe DevTools.
 | `devtools.html/js` | Registers the DevTools panel |
 | `panel.html/css/js` | The panel UI: scans, wizards, flow recording, help, i18n |
 | `options.html/js` | Options page (defaults, flow interval, language) |
-| `vendor/axe.min.js` | axe-core engine (v4.10.3, MPL-2.0), injected into pages |
+| `vendor/axe.min.js` | axe-core engine (MPL-2.0), injected into pages — update with `./update-axe.sh` |
 | `popup.html` | Toolbar popup with usage hint |
 | `test-page.html` | Page with intentional violations for testing |
 | `ci/` | Headless CI companion (Playwright + @axe-core/playwright) |

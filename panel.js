@@ -400,7 +400,14 @@ function render(report) {
     desc.appendChild(link);
     body.appendChild(desc);
 
+    // Collapse identical repeated markup (e.g. 40 copies of the same product card)
+    const groups = new Map();
     for (const node of v.nodes) {
+      const key = node.html;
+      if (!groups.has(key)) groups.set(key, { node, count: 0 });
+      groups.get(key).count++;
+    }
+    for (const { node, count } of groups.values()) {
       const nodeEl = document.createElement("div");
       nodeEl.className = "node";
 
@@ -413,6 +420,13 @@ function render(report) {
         (inIframe ? "[iframe] " : "") + node.html;
       code.addEventListener("click", () => highlight(node.target));
       nodeEl.appendChild(code);
+      if (count > 1) {
+        const dup = document.createElement("span");
+        dup.className = "badge-dup";
+        dup.textContent = "×" + count + " identical";
+        dup.title = "Identical markup repeated — one fix covers all instances";
+        nodeEl.appendChild(dup);
+      }
 
       const actions = document.createElement("div");
       actions.className = "actions";
@@ -1347,7 +1361,49 @@ async function exportReport(format) {
     }
   } else if (format === "issues") {
     download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport()));
+  } else if (format === "jira") {
+    download(base + "-jira.csv", "text/csv", toJiraCsv(lastReport));
   }
+}
+
+// Jira bulk-import CSV: one issue per violated rule (plus DLS gaps when present).
+// Import via Jira → System → External System Import → CSV.
+function toJiraCsv(report) {
+  const prio = { critical: "Highest", serious: "High", moderate: "Medium", minor: "Low" };
+  const fw = settings.framework || "html";
+  const rows = [["Summary", "Issue Type", "Priority", "Labels", "Description"]];
+  for (const v of report.violations) {
+    const els = v.nodes.slice(0, 10).map((n) =>
+      "* {{" + n.target.join(" ") + "}}\n{code:html}" + n.html + "{code}").join("\n");
+    const fix = A11yFixes.suggestFix(v.id, v.nodes[0], fw);
+    const desc =
+      v.description + "\n\nWCAG reference: " + v.helpUrl +
+      "\n\nAffected elements (" + v.nodeTotal + " total, first " + Math.min(10, v.nodes.length) + " shown):\n" + els +
+      (fix ? "\n\nSuggested fix:\n{code}" + fix.snippet + "{code}\n" + fix.note : "");
+    rows.push([
+      "[A11y] " + v.help + " — " + v.nodeTotal + " element(s)",
+      "Bug",
+      prio[v.impact] || "Medium",
+      "accessibility a11y-lens " + v.id,
+      desc,
+    ]);
+  }
+  if (lastDlsExport) {
+    for (const r of lastDlsExport.rows) {
+      if (r.verdict === "pass") continue;
+      const els = (r.elements || []).map((e) => "* {{" + e.sel + "}} — " + e.info).join("\n");
+      rows.push([
+        "[UAE DLS] " + r.label.replace(" ↗", "") + " — " + r.verdict.toUpperCase(),
+        "Bug",
+        r.verdict === "fail" ? "High" : "Medium",
+        "accessibility a11y-lens uae-dls",
+        r.detail + (els ? "\n\nAffected elements:\n" + els : "") +
+          (r.fix ? "\n\nSuggested fix:\n{code}" + r.fix + "{code}" : "") +
+          (r.doc ? "\n\nStandard: " + r.doc : ""),
+      ]);
+    }
+  }
+  return rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
 }
 
 // When a DLS report exists, outline its gaps and capture a second screenshot

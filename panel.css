@@ -492,3 +492,13 @@ select, option, input[type="text"], input[type="password"], input[type="number"]
   animation: rot 0.8s linear infinite;
 }
 @keyframes rot { to { transform: rotate(360deg); } }
+
+.badge-dup {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--minor);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-inline-start: 4px;
+}

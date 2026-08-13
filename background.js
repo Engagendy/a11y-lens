@@ -146,7 +146,9 @@ function highlightAllInPage(list) {
       if (!hit) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      if (type === "click") window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
+      // preventDefault on pointerdown suppresses the compatibility click event,
+      // so record on whichever event arrives first.
+      window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
     };
     window.__a11yLensRevHandlers[type] = fn;
     window.addEventListener(type, fn, true);
@@ -858,7 +860,9 @@ function dlsHighlightInPage(data) {
       if (!hit) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      if (type === "click") window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
+      // preventDefault on pointerdown suppresses the compatibility click event,
+      // so record on whichever event arrives first.
+      window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
     };
     window.__a11yLensRevHandlers[type] = fn;
     window.addEventListener(type, fn, true);

@@ -25,6 +25,7 @@ const LEVEL_TAGS = {
 };
 
 const updateBaseline = process.argv.includes("--update-baseline");
+const useDlsColors = process.argv.includes("--dls"); // contrast fixes prefer UAE DLS tokens
 const suggest = process.argv.includes("--suggest");
 const A11yFixes = suggest ? require("../fixes.js") : null;
 const configPath = process.argv.find((a) => a.endsWith(".json") && !a.includes("baseline")) || "a11y.config.json";
@@ -112,7 +113,7 @@ if (failing.length) {
         html: f.html,
         target: [f.selector],
         failureSummary: f.failureSummary,
-      }, "html");
+      }, "html", useDlsColors ? { dlsPalette: A11yFixes.DLS_COLORS } : undefined);
       if (s) {
         const lines = s.snippet.split("\n");
         console.log(`    suggest:  ${lines[0]}`);

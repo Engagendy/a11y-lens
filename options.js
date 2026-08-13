@@ -1,13 +1,14 @@
 // Options page runs in a normal extension context, so EXT.storage is available directly.
 // Works on Chromium (chrome.*) and Firefox (browser.*, promise-based).
 const EXT = globalThis.browser || globalThis.chrome;
-const DEFAULTS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html" };
+const DEFAULTS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html", dlsContrast: false };
 
 const levelEl = document.getElementById("level");
 const bpEl = document.getElementById("bestPractice");
 const intervalEl = document.getElementById("flowInterval");
 const langEl = document.getElementById("lang");
 const frameworkEl = document.getElementById("framework");
+const dlsContrastEl = document.getElementById("dlsContrast");
 const aiKeyEl = document.getElementById("aiKey");
 const aiModelEl = document.getElementById("aiModel");
 const savedEl = document.getElementById("saved");
@@ -20,6 +21,7 @@ async function load() {
   intervalEl.value = s.flowInterval;
   langEl.value = s.lang;
   frameworkEl.value = s.framework;
+  dlsContrastEl.checked = !!s.dlsContrast;
   document.documentElement.dir = s.lang === "ar" ? "rtl" : "ltr";
   // API key stays in local storage — never sync a key across devices.
   const local = await EXT.storage.local.get(["aiKey", "aiModel"]);
@@ -39,6 +41,7 @@ async function save() {
     flowInterval: Math.min(Math.max(parseInt(intervalEl.value, 10) || 4, 2), 30),
     lang: langEl.value,
     framework: frameworkEl.value,
+    dlsContrast: dlsContrastEl.checked,
   };
   await EXT.storage.sync.set({ settings });
   document.documentElement.dir = settings.lang === "ar" ? "rtl" : "ltr";
@@ -50,6 +53,6 @@ async function saveAi() {
   flashSaved();
 }
 
-for (const el of [levelEl, bpEl, intervalEl, langEl, frameworkEl]) el.addEventListener("change", save);
+for (const el of [levelEl, bpEl, intervalEl, langEl, frameworkEl, dlsContrastEl]) el.addEventListener("change", save);
 for (const el of [aiKeyEl, aiModelEl]) el.addEventListener("change", saveAi);
 load();

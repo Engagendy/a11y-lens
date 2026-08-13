@@ -141,6 +141,11 @@ const LEVEL_TAGS = {
 let settings = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en" };
 let lastReport = null;
 
+// Contrast fixes can prefer UAE DLS palette tokens (Options → dlsContrast).
+function fixOpts() {
+  return settings.dlsContrast ? { dlsPalette: A11yFixes.DLS_COLORS } : undefined;
+}
+
 /* ---------------- init ---------------- */
 
 async function init() {
@@ -452,7 +457,7 @@ function render(report) {
         fix.textContent = node.failureSummary;
         nodeEl.appendChild(fix);
       }
-      const fixSuggestion = A11yFixes.suggestFix(v.id, node, settings.framework || "html");
+      const fixSuggestion = A11yFixes.suggestFix(v.id, node, settings.framework || "html", fixOpts());
       if (fixSuggestion) nodeEl.appendChild(buildFixSuggestion(v, node, fixSuggestion));
       body.appendChild(nodeEl);
     }
@@ -503,7 +508,7 @@ function buildFixSuggestion(v, node, fix) {
   });
   actions.appendChild(copyBtn);
 
-  const patch = A11yFixes.previewPatch(v.id, node);
+  const patch = A11yFixes.previewPatch(v.id, node, fixOpts());
   if (patch && node.target.length === 1) {
     const previewBtn = document.createElement("button");
     previewBtn.textContent = "Preview fix";
@@ -689,7 +694,7 @@ function fixableItems() {
   for (const v of lastReport.violations) {
     for (const n of v.nodes) {
       if (n.target.length !== 1) continue;
-      const patch = A11yFixes.previewPatch(v.id, n);
+      const patch = A11yFixes.previewPatch(v.id, n, fixOpts());
       if (patch) items.push({ selector: n.target[0], patch });
     }
   }
@@ -1360,7 +1365,7 @@ async function exportReport(format) {
       download(base + ".html", "text/html", html);
     }
   } else if (format === "issues") {
-    download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport()));
+    download(base + "-issues.md", "text/markdown", A11yFixes.issuesMarkdown(lastReport, manualResultsForExport(), fixOpts()));
   } else if (format === "jira") {
     download(base + "-jira.csv", "text/csv", toJiraCsv(lastReport));
   } else if (format === "azure") {
@@ -1378,7 +1383,7 @@ function toAzureCsv(report) {
   for (const v of report.violations) {
     const els = v.nodes.slice(0, 10).map((n) =>
       `<li><code>${esc(n.target.join(" "))}</code><br><pre>${esc(n.html)}</pre></li>`).join("");
-    const fix = A11yFixes.suggestFix(v.id, v.nodes[0], fw);
+    const fix = A11yFixes.suggestFix(v.id, v.nodes[0], fw, fixOpts());
     const repro =
       `<p>${esc(v.description)}</p>` +
       `<p>WCAG reference: <a href="${esc(v.helpUrl)}">${esc(v.helpUrl)}</a></p>` +
@@ -1420,7 +1425,7 @@ function toJiraCsv(report) {
   for (const v of report.violations) {
     const els = v.nodes.slice(0, 10).map((n) =>
       "* {{" + n.target.join(" ") + "}}\n{code:html}" + n.html + "{code}").join("\n");
-    const fix = A11yFixes.suggestFix(v.id, v.nodes[0], fw);
+    const fix = A11yFixes.suggestFix(v.id, v.nodes[0], fw, fixOpts());
     const desc =
       v.description + "\n\nWCAG reference: " + v.helpUrl +
       "\n\nAffected elements (" + v.nodeTotal + " total, first " + Math.min(10, v.nodes.length) + " shown):\n" + els +
@@ -1509,7 +1514,7 @@ function withSuggestions(report) {
     violations: report.violations.map((v) => ({
       ...v,
       nodes: v.nodes.map((n) => {
-        const fix = A11yFixes.suggestFix(v.id, n, fw);
+        const fix = A11yFixes.suggestFix(v.id, n, fw, fixOpts());
         return fix ? { ...n, suggestedFix: fix.snippet, fixNote: fix.note } : n;
       }),
     })),
@@ -1525,7 +1530,7 @@ function toCsv(report) {
   const rows = [["rule", "impact", "help", "helpUrl", "selector", "html", "failureSummary", "suggestedFix"]];
   for (const v of report.violations) {
     for (const n of v.nodes) {
-      const fix = A11yFixes.suggestFix(v.id, n, fw);
+      const fix = A11yFixes.suggestFix(v.id, n, fw, fixOpts());
       rows.push([v.id, v.impact, v.help, v.helpUrl, n.target.join(" "), n.html, n.failureSummary, fix ? fix.snippet : ""]);
     }
   }
@@ -1582,7 +1587,7 @@ function toHtml(report, shot, dlsShot) {
       <p style="margin:4px 0 10px;color:#555">${escHtml(v.description)}
         <a href="${escHtml(v.helpUrl)}">Learn more</a></p>
       ${v.nodes.map((n) => {
-        const fix = A11yFixes.suggestFix(v.id, n, settings.framework || "html");
+        const fix = A11yFixes.suggestFix(v.id, n, settings.framework || "html", fixOpts());
         return `
         <div style="border-top:1px solid #eee;padding:8px 0">
           <div style="font-size:12px;color:#555;margin-bottom:3px">Selector: <code style="background:#eef2f6;border-radius:3px;padding:0 4px">${escHtml(n.target.join(" "))}</code></div>

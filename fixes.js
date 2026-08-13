@@ -114,7 +114,10 @@ function hslToRgb(hsl) {
   return [hue(p, q, h + 1 / 3) * 255, hue(p, q, h) * 255, hue(p, q, h - 1 / 3) * 255];
 }
 
-function contrastFix(failureSummary) {
+// UAE DLS color tokens (hex -> token), generated from @aegov/design-system@3.0.7.
+const DLS_COLORS = {"#f9f7ed":"aegold-50","#f2eccf":"aegold-100","#e6d7a2":"aegold-200","#d7bc6d":"aegold-300","#cba344":"aegold-400","#b68a35":"aegold-500","#92722a":"aegold-600","#7c5e24":"aegold-700","#6c4527":"aegold-800","#5d3b26":"aegold-900","#361e12":"aegold-950","#fef2f2":"aered-50","#fde4e3":"aered-100","#fdcdcb":"aered-200","#faaaa7":"aered-300","#f47a75":"aered-400","#ea4f49":"aered-500","#d83731":"aered-600","#b52520":"aered-700","#95231f":"aered-800","#7c2320":"aered-900","#430e0c":"aered-950","#f3faf4":"aegreen-50","#e4f4e7":"aegreen-100","#cae8cf":"aegreen-200","#a0d5ab":"aegreen-300","#6fb97f":"aegreen-400","#4a9d5c":"aegreen-500","#3f8e50":"aegreen-600","#2f663c":"aegreen-700","#2a5133":"aegreen-800","#24432b":"aegreen-900","#0f2415":"aegreen-950","#f7f7f7":"aeblack-50","#e1e3e5":"aeblack-100","#c3c6cb":"aeblack-200","#9ea2a9":"aeblack-300","#797e86":"aeblack-400","#5f646d":"aeblack-500","#4b4f58":"aeblack-600","#3e4046":"aeblack-700","#232528":"aeblack-800","#1b1d21":"aeblack-900","#0e0f12":"aeblack-950","#ffffff":"whitely-50","#fcfcfc":"whitely-100","#f2f2f2":"whitely-300","#ededed":"whitely-400","#e8e8e8":"whitely-500","#fffbeb":"camel-50","#fdf4c8":"camel-100","#fbe68c":"camel-200","#fad44f":"camel-300","#f8c027":"camel-400","#f29f10":"camel-500","#d67907":"camel-600","#b2550a":"camel-700","#904111":"camel-800","#773610":"camel-900","#441b04":"camel-950","#f8fafc":"slate-50","#f1f5f9":"slate-100","#e2e8f0":"slate-200","#cbd5e1":"slate-300","#94a3b8":"slate-400","#64748b":"slate-500","#475569":"slate-600","#334155":"slate-700","#1e293b":"slate-800","#0f172a":"slate-900","#020617":"slate-950","#fdf4ff":"fuchsia-50","#fae8ff":"fuchsia-100","#f5d0fe":"fuchsia-200","#f0abfc":"fuchsia-300","#e879f9":"fuchsia-400","#d946ef":"fuchsia-500","#c026d3":"fuchsia-600","#a21caf":"fuchsia-700","#86198f":"fuchsia-800","#701a75":"fuchsia-900","#4a044e":"fuchsia-950","#e7f5ff":"techblue-50","#d3edff":"techblue-100","#b0dbff":"techblue-200","#81c1ff":"techblue-300","#4f98ff":"techblue-400","#296cff":"techblue-500","#043dff":"techblue-600","#003cff":"techblue-700","#002dc2":"techblue-800","#0b32a4":"techblue-900","#071c5f":"techblue-950","#effaff":"seablue-50","#def3ff":"seablue-100","#b6eaff":"seablue-200","#76dbff":"seablue-300","#2bcaff":"seablue-400","#00abeb":"seablue-500","#0190d4":"seablue-600","#0173ab":"seablue-700","#00608d":"seablue-800","#065074":"seablue-900","#04334d":"seablue-950","#fef5ee":"desert-50","#fce9d8":"desert-100","#f9cfaf":"desert-200","#f5ac7c":"desert-300","#ef8048":"desert-400","#eb5f24":"desert-500","#e54b1d":"desert-600","#b73417":"desert-700","#922b1a":"desert-800","#762518":"desert-900","#3f100b":"desert-950"};
+
+function contrastFix(failureSummary, palette) {
   if (typeof failureSummary !== "string") return null;
   const fgM = /foreground(?:\s+color)?:\s*(#[0-9a-fA-F]{3}\b|#[0-9a-fA-F]{6})/i.exec(failureSummary);
   const bgM = /background(?:\s+color)?:\s*(#[0-9a-fA-F]{3}\b|#[0-9a-fA-F]{6})/i.exec(failureSummary);
@@ -124,6 +127,43 @@ function contrastFix(failureSummary) {
   const fg = hexToRgb(fgM[1]);
   const bg = hexToRgb(bgM[1]);
   if (!fg || !bg) return null;
+  // Palette mode: suggest the nearest token that passes, preferring the same
+  // color family (e.g. aegold-600 -> aegold-700) so fixes stay on the design system.
+  if (palette) {
+    const entries = Object.entries(palette);
+    const dist = (a, b) => {
+      const pa = hexToRgb(a), pb = hexToRgb(b);
+      return (pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2 + (pa[2] - pb[2]) ** 2;
+    };
+    const fgHex = rgbToHex(fg);
+    let nearestTok = null, nd = Infinity;
+    for (const [hex, tok] of entries) {
+      const d = dist(hex, fgHex);
+      if (d < nd) { nd = d; nearestTok = tok; }
+    }
+    const family = nearestTok ? nearestTok.split("-")[0] : null;
+    const passing = entries.filter(([hex]) => contrastRatio(hexToRgb(hex), bg) >= required);
+    if (passing.length) {
+      const inFamily = passing.filter(([, tok]) => tok.split("-")[0] === family);
+      const pool = inFamily.length ? inFamily : passing;
+      let best = null, bd = Infinity;
+      for (const [hex, tok] of pool) {
+        const d = dist(hex, fgHex);
+        if (d < bd) { bd = d; best = [hex, tok]; }
+      }
+      return {
+        from: fgHex,
+        to: best[0],
+        bg: rgbToHex(bg),
+        ratio: Math.round(contrastRatio(hexToRgb(best[0]), bg) * 100) / 100,
+        required: required,
+        token: best[1],
+        fromToken: nd === 0 ? nearestTok : null,
+      };
+    }
+    // no token passes on this background — fall through to the free search
+  }
+
   const hsl = rgbToHsl(fg);
   // Move lightness toward the extreme opposite the background's luminance
   const endL = relLuminance(bg) > 0.5 ? 0 : 1;
@@ -162,8 +202,9 @@ function contrastFix(failureSummary) {
 
 // ---------- Fix suggestions ----------
 
-function suggestFix(ruleId, node, framework) {
+function suggestFix(ruleId, node, framework, opts) {
   framework = framework || "html";
+  const dlsPalette = opts && opts.dlsPalette;
   const html = (node && node.html) || "";
   const attrs = parseAttrs(html);
   const target = (node && node.target && node.target[0]) || "";
@@ -244,7 +285,7 @@ function suggestFix(ruleId, node, framework) {
       };
     }
     case "color-contrast": {
-      const fix = contrastFix(node && node.failureSummary);
+      const fix = contrastFix(node && node.failureSummary, dlsPalette);
       if (!fix) {
         return {
           snippet: "/* Increase the contrast between text and background to meet WCAG. */",
@@ -252,16 +293,25 @@ function suggestFix(ruleId, node, framework) {
         };
       }
       const sel = target || "SELECTOR";
-      let snippet;
-      if (framework === "react") {
-        snippet = 'style={{ color: "' + fix.to + '" }}\n\n/* Or in CSS: */\n' + sel + " {\n  color: " + fix.to + "; /* was " + fix.from + " */\n}";
+      let snippet, note;
+      if (fix.token) {
+        const cssLine = "color: var(--color-" + fix.token + "); /* " + fix.to + ", was " + fix.from + " */";
+        if (framework === "react") {
+          snippet = '/* Tailwind (DLS plugin): */\nclassName="text-' + fix.token + '"\n\n/* Or in CSS: */\n' + sel + " {\n  " + cssLine + "\n}";
+        } else {
+          snippet = "/* Tailwind (DLS plugin): */  class=\"text-" + fix.token + "\"\n\n" + sel + " {\n  " + cssLine + "\n}";
+        }
+        note = "Use the UAE DLS token " + fix.token + " (" + fix.to + ", contrast " + fix.ratio + ":1 on " + fix.bg + ", required " + fix.required + ":1)" +
+          (fix.fromToken ? " — the current color is " + fix.fromToken + ", one step up the same ramp passes." : " — nearest passing token to the current color.");
       } else {
-        snippet = sel + " {\n  color: " + fix.to + "; /* was " + fix.from + " */\n}";
+        if (framework === "react") {
+          snippet = 'style={{ color: "' + fix.to + '" }}\n\n/* Or in CSS: */\n' + sel + " {\n  color: " + fix.to + "; /* was " + fix.from + " */\n}";
+        } else {
+          snippet = sel + " {\n  color: " + fix.to + "; /* was " + fix.from + " */\n}";
+        }
+        note = "Change the text color from " + fix.from + " to " + fix.to + " (contrast " + fix.ratio + ":1 on " + fix.bg + ", required " + fix.required + ":1). Same hue, adjusted lightness.";
       }
-      return {
-        snippet: snippet,
-        note: "Change the text color from " + fix.from + " to " + fix.to + " (contrast " + fix.ratio + ":1 on " + fix.bg + ", required " + fix.required + ":1). Same hue, adjusted lightness."
-      };
+      return { snippet: snippet, note: note };
     }
     case "heading-order": {
       const tag = parseTag(html);
@@ -310,7 +360,7 @@ function suggestFix(ruleId, node, framework) {
   }
 }
 
-function previewPatch(ruleId, node) {
+function previewPatch(ruleId, node, opts) {
   switch (ruleId) {
     case "image-alt":
     case "area-alt":
@@ -321,7 +371,7 @@ function previewPatch(ruleId, node) {
     case "select-name":
       return { attrs: { "aria-label": "Description placeholder" }, styles: {} };
     case "color-contrast": {
-      const fix = contrastFix(node && node.failureSummary);
+      const fix = contrastFix(node && node.failureSummary, opts && opts.dlsPalette);
       if (!fix) return null;
       return { attrs: {}, styles: { color: fix.to } };
     }
@@ -336,7 +386,7 @@ function previewPatch(ruleId, node) {
 
 // ---------- Markdown report ----------
 
-function issuesMarkdown(report, manualResults) {
+function issuesMarkdown(report, manualResults, opts) {
   const lines = [];
   const violations = (report && report.violations) || [];
   const counts = {};
@@ -384,7 +434,7 @@ function issuesMarkdown(report, manualResults) {
       lines.push("");
     });
     const first = (v.nodes || [])[0];
-    const fix = first ? suggestFix(v.id, first, "html") : null;
+    const fix = first ? suggestFix(v.id, first, "html", opts) : null;
     if (fix) {
       lines.push("### Suggested fix");
       lines.push("");
@@ -420,7 +470,7 @@ function issuesMarkdown(report, manualResults) {
   return lines.join("\n");
 }
 
-const A11yFixes = { suggestFix, contrastFix, previewPatch, issuesMarkdown };
+const A11yFixes = { suggestFix, contrastFix, previewPatch, issuesMarkdown, DLS_COLORS };
 if (typeof module !== "undefined" && module.exports) module.exports = A11yFixes;
 if (typeof globalThis !== "undefined") globalThis.A11yFixes = A11yFixes;
 })();

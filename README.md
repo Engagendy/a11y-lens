@@ -61,7 +61,10 @@ engine behind axe DevTools.
   (see `ci/README.md`)
 - **Fix suggestions** — every supported finding shows a corrected, copy-ready
   snippet built from the element's actual HTML (Plain HTML / React / Vue, set in
-  Options); contrast failures include a computed nearest passing color
+  Options); contrast failures include a computed nearest passing color — or,
+  with the Options toggle, the nearest passing **UAE DLS palette token**
+  (e.g. aegold-600 → aegold-700 with the `text-aegold-700` class), so fixes
+  stay on the design system; CI companion: `--suggest --dls`
 - **Preview fix / Undo** — apply the suggested change live in the page to verify
   it re-scans clean before touching source code
 - **AI fix (opt-in)** — bring your own Anthropic API key (stored device-local

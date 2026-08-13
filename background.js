@@ -804,7 +804,7 @@ function dlsHighlightInPage(data) {
 
 /* ---------- message router ---------- */
 
-const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html", mode: "a11y" };
+const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html", mode: "a11y", dlsContrast: false };
 
 async function exec(tabId, func, args, allFrames = false) {
   const results = await EXT.scripting.executeScript({

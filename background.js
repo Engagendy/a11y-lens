@@ -834,6 +834,8 @@ EXT.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       case "clearHighlights":
         await EXT.scripting.executeScript({ target: { tabId, allFrames: true }, func: clearInPage });
         return { result: true };
+      case "domCount":
+        return { result: await exec(tabId, () => document.querySelectorAll("*").length) };
       case "staleInstall":
         return { result: await exec(tabId, staleInstallInPage) };
       case "staleCheck":

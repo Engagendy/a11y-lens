@@ -80,6 +80,10 @@
 
     <details id="resultsSection" open>
       <summary class="section-summary" id="resultsSummaryLabel">🔎 Findings</summary>
+      <div id="filterRow" hidden>
+        <input id="filterInput" type="text" placeholder="🔍 Filter by rule, impact, or selector…" />
+        <span id="filterCount"></span>
+      </div>
       <div id="results">
         <p class="empty">Click <b>Scan this page</b> to run an axe-core audit on the inspected page.</p>
       </div>

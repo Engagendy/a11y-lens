@@ -464,3 +464,31 @@ select, option, input[type="text"], input[type="password"], input[type="number"]
   background-color: Canvas;
   color: CanvasText;
 }
+
+#filterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+#filterInput {
+  flex: 1;
+  max-width: 340px;
+  font: inherit;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+#filterCount { opacity: 0.7; font-size: 11px; }
+
+.spin {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: rot 0.8s linear infinite;
+}
+@keyframes rot { to { transform: rotate(360deg); } }

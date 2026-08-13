@@ -42,6 +42,10 @@ const STR = {
     dlsInOtherTab: (p, t) => ` · DLS: ${p}/${t} — see the 🇦🇪 tab`,
     dlsIntro: "Audit this page against the UAE Design System (AEGov DLS v3 — mandated for federal government entities).",
     findings: "🔎 Findings", historySec: "📈 History",
+    filterPlaceholder: "🔍 Filter by rule, impact, or selector…",
+    filterCount: (s, t) => `${s} of ${t} rule(s)`,
+    scanningBig: "Scanning… large pages can take several seconds.",
+    scanningHuge: (n, s) => `Scanning ${n.toLocaleString()} elements — this may take ~${s}s on a page this large…`,
     scanning: "Scanning…",
     exportLabel: "Export:",
     bestPractices: "best practices",
@@ -69,6 +73,10 @@ const STR = {
     dlsInOtherTab: (p, t) => ` · نظام التصميم: ${p}/${t} — انظر تبويب 🇦🇪`,
     dlsIntro: "دقق هذه الصفحة وفق نظام التصميم الإماراتي (AEGov DLS v3 — الإلزامي للجهات الاتحادية).",
     findings: "🔎 النتائج", historySec: "📈 السجل",
+    filterPlaceholder: "🔍 رشّح حسب القاعدة أو الخطورة أو المحدد…",
+    filterCount: (s, t) => `${s} من ${t} قاعدة`,
+    scanningBig: "جارٍ الفحص… الصفحات الكبيرة قد تستغرق عدة ثوانٍ.",
+    scanningHuge: (n, s) => `جارٍ فحص ${n.toLocaleString()} عنصر — قد يستغرق نحو ${s} ثانية لصفحة بهذا الحجم…`,
     scanning: "جارٍ الفحص…",
     exportLabel: "تصدير:",
     bestPractices: "أفضل الممارسات",
@@ -116,6 +124,9 @@ const manualProgressEl = document.getElementById("manualProgress");
 const helpView = document.getElementById("help");
 const autoView = document.getElementById("auto");
 const modeSelect = document.getElementById("modeSelect");
+const filterRow = document.getElementById("filterRow");
+const filterInput = document.getElementById("filterInput");
+const filterCount = document.getElementById("filterCount");
 const resetBtn = document.getElementById("resetBtn");
 const dlsView = document.getElementById("dlsView");
 const helpListEl = document.getElementById("helpList");
@@ -182,6 +193,27 @@ init();
 scanBtn.addEventListener("click", runScanFlow);
 modeSelect.addEventListener("change", () => bg("settingsSet", { value: { mode: modeSelect.value } }).catch(() => {}));
 resetBtn.addEventListener("click", resetAll);
+filterInput.addEventListener("input", applyFilter);
+
+function applyFilter() {
+  const q = filterInput.value.trim().toLowerCase();
+  const cards = resultsEl.querySelectorAll("details.violation");
+  let shown = 0;
+  for (const card of cards) {
+    const match = !q || card.dataset.search.includes(q);
+    card.hidden = !match;
+    if (match) shown++;
+  }
+  filterCount.textContent = t("filterCount", shown, cards.length);
+}
+
+// Spinner + message while a long operation runs.
+function statusBusy(msg) {
+  statusEl.textContent = "";
+  const sp = document.createElement("span");
+  sp.className = "spin";
+  statusEl.append(sp, " " + msg);
+}
 
 // One Scan button drives the selected audit mode; reports stay unified in exports.
 async function runScanFlow() {
@@ -214,6 +246,7 @@ function resetAll() {
   dlsReportEl.hidden = true;
   dlsReportEl.textContent = "";
   diffEl.textContent = "";
+  filterRow.hidden = true;
   resultsEl.textContent = "";
   const p = document.createElement("p");
   p.className = "empty";
@@ -288,8 +321,13 @@ async function performAxeScan() {
 async function runScan() {
   if (scanBtn.disabled) return;
   scanBtn.disabled = true;
-  statusEl.textContent = t("scanning");
+  statusBusy(t("scanningBig"));
   try {
+    // Pre-count the DOM so heavy pages (e.g. large storefronts) get an honest estimate.
+    try {
+      const n = await bg("domCount");
+      if (n > 4000) statusBusy(t("scanningHuge", n, Math.max(5, Math.round(n / 450))));
+    } catch (_) {}
     const result = await performAxeScan();
     lastReport = {
       ...result,
@@ -413,8 +451,14 @@ function render(report) {
     }
 
     det.appendChild(body);
+    det.dataset.search = (v.id + " " + v.help + " " + v.impact + " " +
+      v.nodes.map((n) => n.target.join(" ") + " " + n.html).join(" ")).toLowerCase();
     resultsEl.appendChild(det);
   }
+  filterRow.hidden = false;
+  filterInput.value = "";
+  filterInput.placeholder = t("filterPlaceholder");
+  applyFilter();
 }
 
 /* ---------------- fix suggestions ---------------- */
@@ -1934,7 +1978,7 @@ const dlsReportEl = document.getElementById("dlsReport");
 dlsBtn.addEventListener("click", runDlsCheck);
 
 async function runDlsCheck() {
-  statusEl.textContent = dt("running");
+  statusBusy(dt("running"));
   dlsBtn.disabled = true;
   try {
     const r = await bg("dlsCheck");

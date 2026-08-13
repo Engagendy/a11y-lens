@@ -14,6 +14,7 @@
       <button id="scanBtn">▶ Scan this page</button>
       <button id="flowBtn" title="Record a user flow: navigate and interact while A11y Lens scans every step and aggregates unique findings">⏺ Record flow</button>
       <button id="helpBtn" class="help-btn" title="Help — what every feature does, with examples">?</button>
+      <button id="optionsBtn" class="help-btn" title="Open extension options (defaults, language, AI key)">⚙</button>
       <select id="levelSelect" title="Which rule set to run">
         <option value="all">All rules</option>
         <option value="wcag22aa" selected>WCAG 2.2 AA</option>
@@ -22,6 +23,7 @@
         <option value="wcag2a">WCAG 2.0 A</option>
       </select>
       <label class="check"><input type="checkbox" id="bestPractice" /> best practices</label>
+      <label class="check" title="Contrast fixes suggest the nearest passing UAE DLS palette token (e.g. aegold-600 → aegold-700) instead of a free color"><input type="checkbox" id="dlsContrastChk" /> DLS colors</label>
       <button id="highlightAllBtn" title="Outline every violating element, color-coded by severity" hidden>◉ Highlight all</button>
       <button id="autofixBtn" title="Apply every machine-fixable patch to the live page (temporary — reload restores the original; your source still needs the real edits)" hidden>⚡ Auto-fix page</button>
       <button id="clearBtn" title="Remove highlights from the page">✕ Clear highlights</button>

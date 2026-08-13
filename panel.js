@@ -45,6 +45,7 @@ const STR = {
     filterPlaceholder: "🔍 Filter by rule, impact, or selector…",
     filterCount: (s, t) => `${s} of ${t} rule(s)`,
     scanningBig: "Scanning… large pages can take several seconds.",
+    dlsColorsChk: "DLS colors",
     scanningHuge: (n, s) => `Scanning ${n.toLocaleString()} elements — this may take ~${s}s on a page this large…`,
     scanning: "Scanning…",
     exportLabel: "Export:",
@@ -76,6 +77,7 @@ const STR = {
     filterPlaceholder: "🔍 رشّح حسب القاعدة أو الخطورة أو المحدد…",
     filterCount: (s, t) => `${s} من ${t} قاعدة`,
     scanningBig: "جارٍ الفحص… الصفحات الكبيرة قد تستغرق عدة ثوانٍ.",
+    dlsColorsChk: "ألوان النظام",
     scanningHuge: (n, s) => `جارٍ فحص ${n.toLocaleString()} عنصر — قد يستغرق نحو ${s} ثانية لصفحة بهذا الحجم…`,
     scanning: "جارٍ الفحص…",
     exportLabel: "تصدير:",
@@ -125,6 +127,7 @@ const helpView = document.getElementById("help");
 const autoView = document.getElementById("auto");
 const modeSelect = document.getElementById("modeSelect");
 const filterRow = document.getElementById("filterRow");
+const dlsContrastChk = document.getElementById("dlsContrastChk");
 const filterInput = document.getElementById("filterInput");
 const filterCount = document.getElementById("filterCount");
 const resetBtn = document.getElementById("resetBtn");
@@ -159,6 +162,7 @@ async function init() {
   }
   levelSelect.value = settings.level || "wcag22aa";
   modeSelect.value = settings.mode || "a11y";
+  dlsContrastChk.checked = !!settings.dlsContrast;
   bestPractice.checked = !!settings.bestPractice;
   applyStrings();
 }
@@ -184,6 +188,7 @@ function applyStrings() {
   document.getElementById("pickFg").textContent = t("pickFg");
   document.getElementById("pickBg").textContent = t("pickBg");
   document.querySelector("label.check").lastChild.textContent = " " + t("bestPractices");
+  dlsContrastChk.parentElement.lastChild.textContent = " " + t("dlsColorsChk");
   resetBtn.textContent = t("reset");
   const modeOpts = modeSelect.querySelectorAll("option");
   modeOpts[0].textContent = t("modeA11y");
@@ -269,6 +274,15 @@ for (const btn of document.querySelectorAll("button.export")) {
 document.getElementById("helpBtn").addEventListener("click", () => showView("help"));
 levelSelect.addEventListener("change", () => bg("settingsSet", { value: { level: levelSelect.value } }).catch(() => {}));
 bestPractice.addEventListener("change", () => bg("settingsSet", { value: { bestPractice: bestPractice.checked } }).catch(() => {}));
+dlsContrastChk.addEventListener("change", () => {
+  settings.dlsContrast = dlsContrastChk.checked;
+  bg("settingsSet", { value: { dlsContrast: dlsContrastChk.checked } }).catch(() => {});
+  if (lastReport) render(lastReport); // refresh suggestions with the new palette mode
+});
+document.getElementById("optionsBtn").addEventListener("click", () => {
+  try { EXT.runtime.openOptionsPage(); }
+  catch (_) { window.open(EXT.runtime.getURL("options.html")); }
+});
 
 // Panel-local keyboard shortcuts (documented in Help)
 document.addEventListener("keydown", (e) => {

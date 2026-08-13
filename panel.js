@@ -1859,6 +1859,12 @@ const DLS_STR = {
     wcagDone: (n) => `Last scan (WCAG 2.2 AA): ${n} violating element(s).`,
     score: (p, t) => `Result: ${p}/${t} checks passed`,
     catalog: "Component catalog", buttons: "Button sizing",
+    bodyText: "Body text", headingScale: "Heading scale", displayH1: "Display heading",
+    bodyOk: (n) => `${n} text blocks sampled — all ≥16px with line-height ≥1.5.`,
+    bodyBad: (s, t) => (s.length ? `${s.length} block(s) below the 16px minimum. ` : "") + (t.length ? `${t.length} block(s) with line-height below 1.5.` : ""),
+    scaleOk: "All headings sit on the DLS type scale (76/62/48/40/32/26/20px).",
+    scaleBad: (n) => `${n} heading(s) off the DLS type scale (76/62/48/40/32/26/20px).`,
+    displayBad: (n) => `${n} display-size heading(s) not using the mandatory extra-light (200) weight.`,
     catalogFound: (found, known) => `${found.length} of ${known} DLS components in use: ${found.map((c) => c.replace("aegov-", "")).join(", ")}`,
     catalogNone: "No DLS components detected.",
     btnOk: (n) => `All ${n} aegov-btn elements match the DLS height spec (32/40/48/52px).`,
@@ -1898,6 +1904,12 @@ const DLS_STR = {
     wcagDone: (n) => `آخر فحص (WCAG 2.2 AA): ${n} عنصراً مخالفاً.`,
     score: (p, t) => `النتيجة: نجاح ${p} من ${t} فحوصات`,
     catalog: "كتالوج المكوّنات", buttons: "مقاسات الأزرار",
+    bodyText: "نص المحتوى", headingScale: "مقياس العناوين", displayH1: "عنوان العرض",
+    bodyOk: (n) => `تم فحص ${n} فقرة — كلها ≥16 بكسل وتباعد أسطر ≥1.5.`,
+    bodyBad: (s, t) => (s.length ? `${s.length} فقرة دون الحد الأدنى 16 بكسل. ` : "") + (t.length ? `${t.length} فقرة بتباعد أسطر أقل من 1.5.` : ""),
+    scaleOk: "جميع العناوين على مقياس النظام (76/62/48/40/32/26/20 بكسل).",
+    scaleBad: (n) => `${n} عنواناً خارج مقياس النظام (76/62/48/40/32/26/20 بكسل).`,
+    displayBad: (n) => `${n} عنوان عرض لا يستخدم الوزن الإلزامي فائق الخفة (200).`,
     catalogFound: (found, known) => `${found.length} من ${known} مكوّناً مستخدماً: ${found.map((c) => c.replace("aegov-", "")).join("، ")}`,
     catalogNone: "لم تُرصد مكوّنات النظام.",
     btnOk: (n) => `جميع أزرار aegov-btn (${n}) تطابق مواصفة الارتفاع (32/40/48/52 بكسل).`,
@@ -2007,6 +2019,9 @@ const DLS_DOCS = {
   components: "https://designsystem.gov.ae/docs/components",
   catalog: "https://designsystem.gov.ae/docs/components",
   buttons: "https://designsystem.gov.ae/docs/components/button",
+  bodyText: "https://designsystem.gov.ae/guidelines/typography",
+  headingScale: "https://designsystem.gov.ae/guidelines/typography",
+  displayH1: "https://designsystem.gov.ae/guidelines/typography",
   wcag: "https://www.w3.org/WAI/WCAG22/quickref/",
 };
 
@@ -2056,6 +2071,33 @@ function renderDlsReport(r) {
   rows.push([wN <= 5 ? "pass" : "warn", dt("weights"),
     [wN <= 5 ? dt("weightsOk", wN) : dt("weightsBad", wN)], null,
     wN <= 5 ? null : "/* Consolidate to the 5 DLS weights, e.g. 300 / 400 / 500 / 700 / 800.\n   Found: " + r.fontWeights.join(", ") + " */"]);
+
+  // 3b. guideline typography: body min size + line-height
+  if (r.bodySampled > 0) {
+    const s = r.smallBody || [], tl = r.tightLines || [];
+    if (!s.length && !tl.length) {
+      rows.push(["pass", dt("bodyText"), [dt("bodyOk", r.bodySampled)]]);
+    } else {
+      rows.push(["warn", dt("bodyText"), [dt("bodyBad", s, tl)],
+        [...s.map((o) => ({ sel: o.sel, info: o.px + "px" })),
+         ...tl.map((o) => ({ sel: o.sel, info: "line-height " + o.ratio }))],
+        "font-size: 1rem; /* ≥16px */\nline-height: 1.5;"]);
+    }
+  }
+
+  // 3c. heading scale + display weight (desktop viewports only)
+  if (r.headingOffScale && r.headingOffScale.length) {
+    rows.push(["warn", dt("headingScale"), [dt("scaleBad", r.headingOffScale.length)],
+      r.headingOffScale.map((o) => ({ sel: o.sel, info: `<${o.tag}> ${o.px}px` })),
+      "/* Use the DLS type scale classes */\n<h2 class=\"text-h2\">…  /* 76/62/48/40/32/26/20px */"]);
+  } else if (r.headingOffScale) {
+    rows.push(["pass", dt("headingScale"), [dt("scaleOk")]]);
+  }
+  if (r.displayWeightBad && r.displayWeightBad.length) {
+    rows.push(["fail", dt("displayH1"), [dt("displayBad", r.displayWeightBad.length)],
+      r.displayWeightBad.map((o) => ({ sel: o.sel, info: `${o.px}px, weight ${o.weight}` })),
+      "font-weight: 200; /* Display size must be extra light, and only in banners covering ≥60% of the viewport */"]);
+  }
 
   // 4. colors
   if (r.colorsSampled > 0) {

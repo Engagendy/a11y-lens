@@ -456,3 +456,11 @@ details[open] > .section-summary::before { content: "▾ "; }
 
 /* display:flex on a section would otherwise defeat the hidden attribute */
 [hidden] { display: none !important; }
+
+/* Native form controls: transparent backgrounds render unpredictably across
+   Chromium theme combinations (e.g. dark Brave + light OS). Canvas/CanvasText
+   are system colors that always follow the resolved color scheme. */
+select, option, input[type="text"], input[type="password"], input[type="number"] {
+  background-color: Canvas;
+  color: CanvasText;
+}

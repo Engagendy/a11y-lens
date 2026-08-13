@@ -1454,8 +1454,8 @@ function toHtml(report, shot, dlsShot) {
     </section>`).join("");
 
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>A11y Lens report — ${escHtml(report.url)}</title></head>
-<body style="font:14px/1.5 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px">
+<html lang="en"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><title>A11y Lens report — ${escHtml(report.url)}</title></head>
+<body style="font:14px/1.5 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;background:#fff;color:#1a1a1a">
   <h1 style="font-size:22px">🔍 A11y Lens report</h1>
   <p><b>Page:</b> ${escHtml(report.url)}<br>
      <b>Scanned:</b> ${escHtml(report.scannedAt)}<br>
@@ -2260,8 +2260,8 @@ async function exportDls(format) {
        <img src="${shot}" style="max-width:100%;border:1px solid #ddd;border-radius:6px">`
     : "";
   const html = `<!DOCTYPE html>
-<html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${escHtml(dt("reportTitle"))}</title></head>
-<body style="font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px">
+<html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><meta name="color-scheme" content="light"><title>${escHtml(dt("reportTitle"))}</title></head>
+<body style="font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;background:#fff;color:#1a1a1a">
   <p><b>${escHtml(url)}</b><br>${escHtml(lastDlsExport.scannedAt)}</p>
   ${dlsSectionHtml()}
   ${shotHtml}

@@ -53,6 +53,25 @@ AND MORE
 • Options: default rule set, flow scan interval, English or Arabic (RTL) interface
 • Keyboard shortcuts: S scan, R record flow, X clear, C contrast, 1/2/3 tabs
 
+NEW SINCE v1.0
+• 🇦🇪 UAE Design System (DLS) audit — 13 checks against the official AEGov design
+  system (mandated for UAE federal entities): component adoption, fonts, type
+  scale, the real 115-token color palette with nearest-token suggestions,
+  bilingual/RTL, button sizing — with gap highlighting on the page, per-element
+  detail, fixes, and links to the standard
+• Fix suggestions for every finding: copy-ready corrected snippets
+  (HTML/React/Vue), computed passing contrast colors — optionally from the UAE
+  DLS palette — live Preview fix with Undo, and one-click Auto-fix page
+• Two-way navigation: click a finding to highlight it on the page, or click a
+  highlighted element on the page to jump to its finding
+• Reports with evidence: annotated screenshots embedded in HTML/PDF exports,
+  rule summary, per-element selectors
+• Ticketing exports: GitHub issues markdown, Jira bulk-import CSV, Azure DevOps
+  work items
+• Violation filter/search, scan-history trend charts, loading estimates for
+  heavy pages
+• Full Arabic interface and content, incl. all manual test wizards and help
+
 PRIVACY
 Everything runs locally in your browser. No data is collected, transmitted,
 or sold — scan results and settings never leave your machine.
@@ -88,7 +107,7 @@ the developer through fixing them.
 ## Assets checklist
 
 - [x] Screenshots (1280×800): store/screenshots/1-automated-scan.png,
-      2-guided-wizard.png, 3-help-contrast.png
+      2-dls-audit.png, 3-manual-wizard.png
 - [x] Icon 128×128: icons/icon128.png (auto-pulled from the package)
 - [ ] Optional small promo tile 440×280 (can skip at first)
 - [ ] Privacy policy URL — host store/PRIVACY.md publicly (e.g. GitHub repo /

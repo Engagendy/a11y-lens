@@ -8,8 +8,13 @@ gecko id `a11y-lens@engagendy.dev`, event-page background).
 1. Create/sign in at https://addons.mozilla.org → developer hub
    (https://addons.mozilla.org/developers/) → **Submit a New Add-on**
 2. Choose **On this site** (listed) → upload `dist/a11y-lens-firefox.zip`
-3. Firefox validation runs automatically — warnings are informational;
-   errors would block (none expected)
+3. Firefox validation runs automatically. Expected results:
+   - 0 errors (the manifest declares
+     `data_collection_permissions: {"required": ["none"]}` — Firefox's
+     built-in data-consent requirement; this extension collects nothing)
+   - ~10 warnings, all inside `vendor/axe.min.js` ("Function constructor is
+     eval", "unsafe innerHTML") — these are part of the official axe-core
+     build and are informational; they do not block review
 4. **Source code step:** because `vendor/axe.min.js` is minified, AMO asks
    about source. Answer: the minified file is the unmodified official release
    of the public library axe-core v4.13.0 (MPL-2.0), byte-identical to

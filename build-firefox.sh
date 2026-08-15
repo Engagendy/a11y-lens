@@ -20,7 +20,13 @@ m = json.load(open(path))
 m["background"] = {"scripts": ["background.js"]}
 m.pop("minimum_chrome_version", None)
 m["browser_specific_settings"] = {
-    "gecko": {"id": "a11y-lens@engagendy.dev", "strict_min_version": "115.0"}
+    "gecko": {
+        "id": "a11y-lens@engagendy.dev",
+        "strict_min_version": "115.0",
+        # Firefox built-in data consent: this extension collects nothing.
+        # https://mzl.la/firefox-builtin-data-consent
+        "data_collection_permissions": {"required": ["none"]},
+    }
 }
 json.dump(m, open(path, "w"), indent=2)
 EOF

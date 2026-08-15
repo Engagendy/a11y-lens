@@ -1,6 +1,12 @@
 # A11y Lens 🔍
 
-A Chrome extension (Manifest V3) that audits any web page for accessibility issues,
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/cccmjnbcpcphmijhfmpnnghbdjdjdkcg?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/a11y-lens/cccmjnbcpcphmijhfmpnnghbdjdjdkcg)
+[![Firefox Add-ons](https://img.shields.io/amo/v/a11y-lens?label=Firefox%20Add-ons&color=FF7139)](https://addons.mozilla.org/en-US/firefox/addon/a11y-lens/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**Install:** [Chrome / Brave / Edge](https://chromewebstore.google.com/detail/a11y-lens/cccmjnbcpcphmijhfmpnnghbdjdjdkcg) · [Firefox](https://addons.mozilla.org/en-US/firefox/addon/a11y-lens/)
+
+A browser extension (Manifest V3) that audits any web page for accessibility issues,
 powered by [axe-core](https://github.com/dequelabs/axe-core) — the same open-source
 engine behind axe DevTools.
 
@@ -89,11 +95,17 @@ engine behind axe DevTools.
   automatically and unique findings are aggregated and labeled with the page
   they came from
 
-## Install (unpacked)
+## Install
 
+**From the stores (recommended):**
+- Chrome / Brave / Edge: [Chrome Web Store](https://chromewebstore.google.com/detail/a11y-lens/cccmjnbcpcphmijhfmpnnghbdjdjdkcg)
+- Firefox: [Firefox Add-ons (AMO)](https://addons.mozilla.org/en-US/firefox/addon/a11y-lens/)
+
+**From source (development):**
 1. Open Chrome and go to `chrome://extensions`
 2. Enable **Developer mode** (toggle, top-right)
 3. Click **Load unpacked** and select this folder (`a11y-lens-extension`)
+4. Firefox: `./build-firefox.sh`, then `about:debugging` → Load Temporary Add-on
 
 ## Use
 

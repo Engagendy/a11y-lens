@@ -4,6 +4,8 @@ A Chrome extension (Manifest V3) that audits any web page for accessibility issu
 powered by [axe-core](https://github.com/dequelabs/axe-core) — the same open-source
 engine behind axe DevTools.
 
+![A11y Lens demo — scan, fix suggestions with UAE DLS tokens, live preview, DLS audit, Arabic RTL](docs/demo.gif)
+
 ## Features
 
 - **DevTools panel** — a new "A11y Lens" tab inside Chrome DevTools

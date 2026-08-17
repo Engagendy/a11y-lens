@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "A11y Lens",
-  "description": "Accessibility checker powered by axe-core. Scan any page for WCAG violations and highlight offending elements.",
-  "version": "1.12.3",
+  "name": "A11y Miyar — Accessibility & UAE DLS Audits",
+  "description": "Accessibility checker powered by axe-core, plus a UAE Design System (DLS) audit. Scan, highlight, fix, and export WCAG reports.",
+  "version": "1.13.0",
   "minimum_chrome_version": "102",
   "permissions": [
     "scripting",
@@ -20,7 +20,7 @@
   },
   "devtools_page": "devtools.html",
   "action": {
-    "default_title": "A11y Lens \u2014 open DevTools and pick the A11y Lens tab",
+    "default_title": "A11y Miyar — open DevTools and pick the A11y Miyar tab",
     "default_popup": "popup.html"
   },
   "icons": {

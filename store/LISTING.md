@@ -2,7 +2,7 @@
 
 ## Basic info
 
-- **Name:** A11y Lens — Accessibility Checker
+- **Name:** A11y Miyar — Accessibility Checker
 - **Category:** Developer Tools
 - **Language:** English
 
@@ -17,7 +17,7 @@ recording, contrast checker & exportable reports.
 ## Detailed description
 
 ```
-A11y Lens is a complete accessibility auditing toolkit that lives inside your
+A11y Miyar is a complete accessibility auditing toolkit that lives inside your
 browser's DevTools. It combines automated scanning (powered by axe-core, the
 open-source engine behind Lighthouse) with guided manual testing — because
 automated tools alone catch only 30–50% of WCAG issues.
@@ -76,7 +76,7 @@ PRIVACY
 Everything runs locally in your browser. No data is collected, transmitted,
 or sold — scan results and settings never leave your machine.
 
-A11y Lens uses the axe-core engine (© Deque Systems, MPL-2.0). This extension
+A11y Miyar uses the axe-core engine (© Deque Systems, MPL-2.0). This extension
 is not affiliated with or endorsed by Deque Systems. "axe" is a trademark of
 Deque Systems, Inc.
 ```

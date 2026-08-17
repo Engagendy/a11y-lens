@@ -1,9 +1,9 @@
 {
-  "name": "a11y-lens-ci",
+  "name": "a11y-miyar-ci",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CI companion for A11y Lens — runs the same axe-core rule sets headlessly and fails the build on new violations.",
+  "description": "CI companion for A11y Miyar \u2014 runs the same axe-core rule sets headlessly and fails the build on new violations.",
   "scripts": {
     "a11y": "node a11y-ci.mjs",
     "a11y:baseline": "node a11y-ci.mjs --update-baseline",

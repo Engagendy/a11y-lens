@@ -1,4 +1,4 @@
-// A11y Lens fix suggestions. Dependency-free; runs in browser and Node (no DOM used).
+// A11y Miyar fix suggestions. Dependency-free; runs in browser and Node (no DOM used).
 // Wrapped in an IIFE: the panel loads this as a classic script sharing the global
 // scope with panel.js, and top-level helpers (e.g. contrastRatio) would collide.
 (function () {

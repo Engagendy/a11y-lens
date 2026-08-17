@@ -21,7 +21,7 @@ m["background"] = {"scripts": ["background.js"]}
 m.pop("minimum_chrome_version", None)
 m["browser_specific_settings"] = {
     "gecko": {
-        "id": "a11y-lens@engagendy.dev",
+        "id": "a11y-lens@engagendy.dev",  # AMO identity — never change, even after rebrand
         "strict_min_version": "115.0",
         # Firefox built-in data consent: this extension collects nothing.
         # https://mzl.la/firefox-builtin-data-consent
@@ -31,7 +31,7 @@ m["browser_specific_settings"] = {
 json.dump(m, open(path, "w"), indent=2)
 EOF
 
-(cd "$DIST" && zip -qr ../a11y-lens-firefox.zip . -x "*.DS_Store")
-echo "Built dist/a11y-lens-firefox.zip"
+(cd "$DIST" && zip -qr ../a11y-miyar-firefox.zip . -x "*.DS_Store")
+echo "Built dist/a11y-miyar-firefox.zip"
 echo "Test in Firefox: about:debugging → This Firefox → Load Temporary Add-on → pick $DIST/manifest.json"
 echo "Note: the contrast eyedropper is unavailable in Firefox (no EyeDropper API) — the panel shows a notice instead."

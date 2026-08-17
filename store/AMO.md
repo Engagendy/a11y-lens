@@ -1,13 +1,13 @@
 # Firefox Add-ons (AMO) submission kit
 
-Package: `dist/a11y-lens-firefox.zip` (built by `./build-firefox.sh`, v1.12.2,
+Package: `dist/a11y-miyar-firefox.zip` (built by `./build-firefox.sh`, v1.12.2,
 gecko id `a11y-lens@engagendy.dev`, event-page background).
 
 ## Steps
 
 1. Create/sign in at https://addons.mozilla.org → developer hub
    (https://addons.mozilla.org/developers/) → **Submit a New Add-on**
-2. Choose **On this site** (listed) → upload `dist/a11y-lens-firefox.zip`
+2. Choose **On this site** (listed) → upload `dist/a11y-miyar-firefox.zip`
 3. Firefox validation runs automatically. Expected results:
    - 0 errors (the manifest declares
      `data_collection_permissions: {"required": ["none"]}` — Firefox's

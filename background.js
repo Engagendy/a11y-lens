@@ -1,4 +1,4 @@
-// A11y Lens background service worker.
+// A11y Miyar background service worker.
 // DevTools panel pages cannot use EXT.scripting or EXT.storage directly —
 // the panel sends {op, tabId, ...} messages here and this worker does the work.
 
@@ -126,7 +126,7 @@ function highlightAllInPage(list) {
     const el = deepQ(sel);
     if (el) {
       el.setAttribute("data-a11y-lens", impact);
-      el.setAttribute("data-a11y-lens-sel", sel);
+      el.setAttribute("data-a11y-miyar-sel", sel);
       el.style.setProperty("outline", `3px solid ${colors[impact]}`, "important");
       el.style.setProperty("outline-offset", "1px", "important");
     }
@@ -142,13 +142,13 @@ function highlightAllInPage(list) {
   for (const type of ["pointerdown", "mousedown", "auxclick", "click"]) {
     const fn = (e) => {
       const path = e.composedPath ? e.composedPath() : [e.target];
-      const hit = path.find((n) => n && n.getAttribute && n.hasAttribute("data-a11y-lens-sel"));
+      const hit = path.find((n) => n && n.getAttribute && n.hasAttribute("data-a11y-miyar-sel"));
       if (!hit) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       // preventDefault on pointerdown suppresses the compatibility click event,
       // so record on whichever event arrives first.
-      window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
+      window.__a11yLensClicked = hit.getAttribute("data-a11y-miyar-sel");
     };
     window.__a11yLensRevHandlers[type] = fn;
     window.addEventListener(type, fn, true);
@@ -168,7 +168,7 @@ function clearInPage() {
     el.style.removeProperty("outline-offset");
   });
   document.querySelectorAll(".__a11y_lens_overlay").forEach((el) => el.remove());
-  document.querySelectorAll("[data-a11y-lens-sel]").forEach((el) => el.removeAttribute("data-a11y-lens-sel"));
+  document.querySelectorAll("[data-a11y-miyar-sel]").forEach((el) => el.removeAttribute("data-a11y-miyar-sel"));
   if (window.__a11yLensRevHandlers) {
     for (const [type, fn] of Object.entries(window.__a11yLensRevHandlers)) {
       window.removeEventListener(type, fn, true);
@@ -777,7 +777,7 @@ function dlsHighlightInPage(data) {
     if (count >= MAX || !el.getClientRects().length) return;
     count++;
     el.setAttribute("data-a11y-lens", "dls");
-    el.setAttribute("data-a11y-lens-sel", "dls:" + cssPathRev(el));
+    el.setAttribute("data-a11y-miyar-sel", "dls:" + cssPathRev(el));
     el.style.setProperty("outline", "3px dashed #b68a35", "important");
     el.style.setProperty("outline-offset", "2px", "important");
     const r = el.getBoundingClientRect();
@@ -876,13 +876,13 @@ function dlsHighlightInPage(data) {
   for (const type of ["pointerdown", "mousedown", "auxclick", "click"]) {
     const fn = (e) => {
       const path = e.composedPath ? e.composedPath() : [e.target];
-      const hit = path.find((n) => n && n.getAttribute && n.hasAttribute("data-a11y-lens-sel"));
+      const hit = path.find((n) => n && n.getAttribute && n.hasAttribute("data-a11y-miyar-sel"));
       if (!hit) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       // preventDefault on pointerdown suppresses the compatibility click event,
       // so record on whichever event arrives first.
-      window.__a11yLensClicked = hit.getAttribute("data-a11y-lens-sel");
+      window.__a11yLensClicked = hit.getAttribute("data-a11y-miyar-sel");
     };
     window.__a11yLensRevHandlers[type] = fn;
     window.addEventListener(type, fn, true);

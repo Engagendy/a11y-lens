@@ -1,4 +1,4 @@
-# A11y Lens 🔍
+# A11y Miyar 🔍
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/cccmjnbcpcphmijhfmpnnghbdjdjdkcg?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/a11y-lens/cccmjnbcpcphmijhfmpnnghbdjdjdkcg)
 [![Firefox Add-ons](https://img.shields.io/amo/v/a11y-lens?label=Firefox%20Add-ons&color=FF7139)](https://addons.mozilla.org/en-US/firefox/addon/a11y-lens/)
@@ -10,11 +10,11 @@ A browser extension (Manifest V3) that audits any web page for accessibility iss
 powered by [axe-core](https://github.com/dequelabs/axe-core) — the same open-source
 engine behind axe DevTools.
 
-![A11y Lens demo — scan, fix suggestions with UAE DLS tokens, live preview, DLS audit, Arabic RTL](docs/demo.gif)
+![A11y Miyar demo — scan, fix suggestions with UAE DLS tokens, live preview, DLS audit, Arabic RTL](docs/demo.gif)
 
 ## Features
 
-- **DevTools panel** — a new "A11y Lens" tab inside Chrome DevTools
+- **DevTools panel** — a new "A11y Miyar" tab inside Chrome DevTools
 - **One-click scan** — runs `axe.run()` on the inspected page
 - **Severity summary** — critical / serious / moderate / minor counts + passed checks
 - **Click-to-highlight** — click any flagged HTML snippet to outline and scroll to
@@ -51,7 +51,7 @@ engine behind axe DevTools.
   HTML/CSV/JSON exports now embed the suggested fix for every finding
 - **Shadow DOM support** — findings inside open shadow roots resolve, highlight,
   and auto-fix correctly (`host >>> selector`)
-- **Firefox build** — `./build-firefox.sh` produces `dist/a11y-lens-firefox.zip`
+- **Firefox build** — `./build-firefox.sh` produces `dist/a11y-miyar-firefox.zip`
   (event-page background, gecko id; the contrast eyedropper is Chromium-only)
 - **WCAG 3.0 readiness** — honest status in the Help tab: WCAG 3 is a W3C draft;
   the tool tracks WCAG 2.0/2.1/2.2 and will add WCAG 3 when axe-core does
@@ -104,14 +104,14 @@ engine behind axe DevTools.
 **From source (development):**
 1. Open Chrome and go to `chrome://extensions`
 2. Enable **Developer mode** (toggle, top-right)
-3. Click **Load unpacked** and select this folder (`a11y-lens-extension`)
+3. Click **Load unpacked** and select this folder (`a11y-miyar-extension`)
 4. Firefox: `./build-firefox.sh`, then `about:debugging` → Load Temporary Add-on
 
 ## Use
 
 1. Open any page — or the included `test-page.html` (drag it into Chrome),
    which is full of intentional violations
-2. Open DevTools (`F12` / `⌥⌘I`) and select the **A11y Lens** tab
+2. Open DevTools (`F12` / `⌥⌘I`) and select the **A11y Miyar** tab
    (it may be hidden behind the `»` overflow menu)
 3. Click **▶ Scan this page**
 4. Expand a violation and click an HTML snippet to highlight the element

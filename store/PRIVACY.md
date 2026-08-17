@@ -1,12 +1,12 @@
-# A11y Lens — Privacy Policy
+# A11y Miyar — Privacy Policy
 
 _Last updated: August 12, 2026_
 
-A11y Lens is a browser extension that audits web pages for accessibility issues.
+A11y Miyar is a browser extension that audits web pages for accessibility issues.
 
 ## Data collection
 
-A11y Lens does **not** collect, transmit, sell, or share any user data.
+A11y Miyar does **not** collect, transmit, sell, or share any user data.
 There are no analytics, no telemetry, no accounts, and no external servers.
 
 ## What stays on your device
@@ -32,7 +32,7 @@ above) or transmitted anywhere.
 
 ## Third-party code
 
-A11y Lens bundles the open-source axe-core engine (Mozilla Public License 2.0,
+A11y Miyar bundles the open-source axe-core engine (Mozilla Public License 2.0,
 © Deque Systems, Inc.). No code is loaded from remote servers.
 
 ## Contact

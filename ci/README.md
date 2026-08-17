@@ -1,6 +1,6 @@
-# A11y Lens — CI companion
+# A11y Miyar — CI companion
 
-Runs the **same axe-core rule sets** as the A11y Lens extension, headlessly via
+Runs the **same axe-core rule sets** as the A11y Miyar extension, headlessly via
 Playwright, and fails the build when new accessibility violations appear.
 The extension becomes your local debugging view for CI failures.
 
@@ -32,7 +32,7 @@ npm run a11y -- --suggest   # also print a suggested fix snippet for each failin
 `--suggest` uses the same fix engine (`fixes.js`) as the extension's DevTools
 panel, so CI output and the panel suggest identical fixes.
 
-Fix flow: CI fails → open the listed page in Chrome/Brave → A11y Lens DevTools
+Fix flow: CI fails → open the listed page in Chrome/Brave → A11y Miyar DevTools
 panel → scan → click the finding to highlight/Inspect → fix → `npm run a11y`
 passes → once old baseline issues are fixed, run `a11y:baseline` again to shrink it.
 

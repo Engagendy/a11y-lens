@@ -446,10 +446,14 @@ function helperTabStops() {
     const b = document.createElement("div");
     b.className = "__a11y_lens_overlay";
     b.textContent = i + 1;
-    b.style.cssText = `position:absolute;z-index:2147483647;left:${scrollX + r.left - 6}px;top:${scrollY + r.top - 6}px;` +
+      let __host = document.body;
+      try { __host = el.closest("dialog[open], :popover-open") || document.body; }
+      catch (_) { try { __host = el.closest("dialog[open]") || document.body; } catch (__) {} }
+      const __fx = __host !== document.body;
+      b.style.cssText = `position:${__fx ? "fixed" : "absolute"};z-index:2147483647;left:${(__fx ? 0 : scrollX) + r.left - 6}px;top:${(__fx ? 0 : scrollY) + r.top - 6}px;` +
       "background:#7b1fa2;color:#fff;font:bold 11px/18px sans-serif;min-width:18px;height:18px;" +
       "text-align:center;border-radius:9px;padding:0 3px;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.5)";
-    document.body.appendChild(b);
+    __host.appendChild(b);
     el.style.setProperty("outline", "2px dashed #7b1fa2", "important");
     el.setAttribute("data-a11y-lens", "tabstop");
   });
@@ -476,9 +480,13 @@ function helperHeadings() {
     const b = document.createElement("div");
     b.className = "__a11y_lens_overlay";
     b.textContent = "h" + lvl;
-    b.style.cssText = `position:absolute;z-index:2147483647;left:${scrollX + r.left - 4}px;top:${scrollY + r.top - 16}px;` +
+      let __host = document.body;
+      try { __host = h.closest("dialog[open], :popover-open") || document.body; }
+      catch (_) { try { __host = h.closest("dialog[open]") || document.body; } catch (__) {} }
+      const __fx = __host !== document.body;
+      b.style.cssText = `position:${__fx ? "fixed" : "absolute"};z-index:2147483647;left:${(__fx ? 0 : scrollX) + r.left - 4}px;top:${(__fx ? 0 : scrollY) + r.top - 16}px;` +
       "background:#1976d2;color:#fff;font:bold 10px/14px sans-serif;padding:0 4px;border-radius:3px;pointer-events:none";
-    document.body.appendChild(b);
+    __host.appendChild(b);
   }
   const h1s = hs.filter((h) => h.tagName === "H1").length;
   const notes = [];
@@ -507,9 +515,13 @@ function helperLandmarks() {
     const b = document.createElement("div");
     b.className = "__a11y_lens_overlay";
     b.textContent = name + (label ? ": " + label : "");
-    b.style.cssText = `position:absolute;z-index:2147483647;left:${scrollX + r.left}px;top:${scrollY + r.top}px;` +
+      let __host = document.body;
+      try { __host = el.closest("dialog[open], :popover-open") || document.body; }
+      catch (_) { try { __host = el.closest("dialog[open]") || document.body; } catch (__) {} }
+      const __fx = __host !== document.body;
+      b.style.cssText = `position:${__fx ? "fixed" : "absolute"};z-index:2147483647;left:${(__fx ? 0 : scrollX) + r.left}px;top:${(__fx ? 0 : scrollY) + r.top}px;` +
       "background:#00838f;color:#fff;font:bold 10px/16px sans-serif;padding:0 5px;pointer-events:none";
-    document.body.appendChild(b);
+    __host.appendChild(b);
   }
   const mains = found.filter((el) => el.tagName === "MAIN" || el.getAttribute("role") === "main").length;
   const notes = [];
@@ -542,10 +554,14 @@ function helperAltOverlay() {
     const b = document.createElement("div");
     b.className = "__a11y_lens_overlay";
     b.textContent = text;
-    b.style.cssText = `position:absolute;z-index:2147483647;left:${scrollX + r.left}px;top:${scrollY + r.top}px;` +
+      let __host = document.body;
+      try { __host = el.closest("dialog[open], :popover-open") || document.body; }
+      catch (_) { try { __host = el.closest("dialog[open]") || document.body; } catch (__) {} }
+      const __fx = __host !== document.body;
+      b.style.cssText = `position:${__fx ? "fixed" : "absolute"};z-index:2147483647;left:${(__fx ? 0 : scrollX) + r.left}px;top:${(__fx ? 0 : scrollY) + r.top}px;` +
       `max-width:${Math.max(r.width, 120)}px;background:${bad ? "#d32f2f" : "#2e7d32"};color:#fff;` +
       "font:10px/14px sans-serif;padding:1px 5px;pointer-events:none;word-break:break-word";
-    document.body.appendChild(b);
+    __host.appendChild(b);
   }
   return `${imgs.length} image(s) labeled — ${missing} with no accessible name. ` +
     "Now judge the QUALITY of each green label against what the image shows.";
@@ -768,9 +784,13 @@ function dlsHighlightInPage(data) {
     const b = document.createElement("div");
     b.className = "__a11y_lens_overlay";
     b.textContent = label;
-    b.style.cssText = `position:absolute;z-index:2147483647;left:${scrollX + r.left}px;top:${scrollY + r.top - 16}px;` +
+      let __host = document.body;
+      try { __host = el.closest("dialog[open], :popover-open") || document.body; }
+      catch (_) { try { __host = el.closest("dialog[open]") || document.body; } catch (__) {} }
+      const __fx = __host !== document.body;
+      b.style.cssText = `position:${__fx ? "fixed" : "absolute"};z-index:2147483647;left:${(__fx ? 0 : scrollX) + r.left}px;top:${(__fx ? 0 : scrollY) + r.top - 16}px;` +
       "background:#b68a35;color:#fff;font:bold 10px/15px sans-serif;padding:0 5px;border-radius:3px 3px 0 0;pointer-events:none;max-width:340px;white-space:nowrap;overflow:hidden";
-    document.body.appendChild(b);
+    __host.appendChild(b);
   };
 
   // off-spec aegov-btn heights

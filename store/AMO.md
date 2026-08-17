@@ -1,6 +1,6 @@
 # Firefox Add-ons (AMO) submission kit
 
-Package: `dist/a11y-miyar-firefox.zip` (built by `./build-firefox.sh`, v1.12.2,
+Package: `dist/a11y-miyar-firefox.zip` (built by `./build-firefox.sh`, v1.13.0,
 gecko id `a11y-lens@engagendy.dev`, event-page background).
 
 ## Steps

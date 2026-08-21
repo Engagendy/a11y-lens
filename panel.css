@@ -524,3 +524,6 @@ header button:hover {
 #flowBtn.recording:hover { background: #e5493f; }
 #autofixBtn.on { background: var(--passes); }
 #autofixBtn.on:hover { background: #3b9c41; }
+
+.dls-comp { margin-top: 10px; border-top: 2px solid #b68a35; }
+.dls-comp > .section-summary { background: color-mix(in srgb, #b68a35 8%, transparent); }

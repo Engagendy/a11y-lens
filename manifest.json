@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "A11y Miyar — Accessibility & UAE DLS Audits",
   "description": "Accessibility checker powered by axe-core, plus a UAE Design System (DLS) audit. Scan, highlight, fix, and export WCAG reports.",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "minimum_chrome_version": "102",
   "permissions": [
     "scripting",

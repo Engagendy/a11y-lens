@@ -891,6 +891,198 @@ function dlsHighlightInPage(data) {
   return count;
 }
 
+function dlsComponentAuditInPage(data) {
+  const rows = [];
+  const cs = (el) => getComputedStyle(el);
+  const px = (v) => Math.round(parseFloat(v) || 0);
+  const near = (v, want, tol) => Math.abs(v - want) <= (tol === undefined ? 2 : tol);
+  const cssPath = (el) => {
+    const parts = [];
+    let cur = el;
+    for (let depth = 0; cur && cur.nodeType === 1 && depth < 5; depth++) {
+      if (cur.id) { parts.unshift("#" + CSS.escape(cur.id)); break; }
+      const tag = cur.tagName.toLowerCase();
+      if (tag === "body" || tag === "html") { parts.unshift(tag); break; }
+      const parent = cur.parentElement;
+      const idx = parent ? [...parent.children].indexOf(cur) + 1 : 1;
+      parts.unshift(`${tag}:nth-child(${idx})`);
+      cur = parent;
+    }
+    return parts.join(" > ");
+  };
+  const add = (component, check, status, issue, els) => rows.push({
+    component, check, status, issue,
+    count: els ? els.length : 0,
+    sels: (els || []).slice(0, 5).map(cssPath),
+  });
+  const vis = (el) => el.getClientRects().length > 0;
+  const q = (sel) => [...document.querySelectorAll(sel)].filter(vis);
+  const textOf = (el) => (el.textContent || "").trim();
+  const hasIcon = (el) => !!el.querySelector("svg, img, i[class*='icon']");
+  const accName = (el) => textOf(el) || el.getAttribute("aria-label") || el.getAttribute("title");
+
+  // ---------- Button ----------
+  const btns = q(".aegov-btn");
+  if (btns.length) {
+    const wrongTag = btns.filter((b) => !/^(BUTTON|A)$/.test(b.tagName));
+    add("Button", "Invalid Tag", wrongTag.length ? "fail" : "pass",
+      wrongTag.length ? "aegov-btn must be a <button> or <a> element." : "All aegov-btn use valid tags.", wrongTag);
+    const noType = btns.filter((b) => b.tagName === "BUTTON" && !b.hasAttribute("type"));
+    add("Button", "Missing Type Attribute", noType.length ? "fail" : "pass",
+      noType.length ? "<button> elements should declare type (button/submit/reset)." : "All buttons declare a type.", noType);
+    const iconOnly = btns.filter((b) => !textOf(b) && hasIcon(b) && !b.getAttribute("aria-label") && !b.getAttribute("title"));
+    add("Button", "Invalid Only Icon Variant", iconOnly.length ? "fail" : "pass",
+      iconOnly.length ? "Icon-only buttons need aria-label (and the btn-icon class)." : "Icon-only buttons are labelled.", iconOnly);
+    const empty = btns.filter((b) => !accName(b) && !hasIcon(b));
+    add("Button", "Missing Text in Button", empty.length ? "fail" : "pass",
+      empty.length ? "Button has no text, icon, or accessible name." : "All buttons have content.", empty);
+    const padSpec = { "btn-xs": 16, "btn-sm": 20, "btn-lg": 28 };
+    const badPad = btns.filter((b) => {
+      const want = Object.keys(padSpec).find((k) => b.classList.contains(k));
+      const target = want ? padSpec[want] : 24;
+      if (b.classList.contains("btn-icon")) return false;
+      return !near(px(cs(b).paddingLeft), target, 3);
+    });
+    add("Button", "Invalid Horizontal Padding", badPad.length ? "warn" : "pass",
+      badPad.length ? "Padding differs from the size-variant spec (16/20/24/28px)." : "Button padding matches the spec.", badPad);
+  }
+
+  // ---------- Badge ----------
+  const badges = q(".aegov-badge");
+  if (badges.length) {
+    const wrongTag = badges.filter((b) => !/^(SPAN|A)$/.test(b.tagName));
+    add("Badge", "Invalid Tag", wrongTag.length ? "fail" : "pass",
+      wrongTag.length ? "aegov-badge must be a <span> or <a>." : "All badges use valid tags.", wrongTag);
+    const noContent = badges.filter((b) => !accName(b) && !hasIcon(b));
+    add("Badge", "Missing Badge Content", noContent.length ? "fail" : "pass",
+      noContent.length ? "Badge is empty." : "All badges have content.", noContent);
+    const iconOnly = badges.filter((b) => !textOf(b) && hasIcon(b) && !b.getAttribute("aria-label"));
+    add("Badge", "Missing aria-label for Icon-Only Badge", iconOnly.length ? "fail" : "pass",
+      iconOnly.length ? "Icon-only badges need aria-label." : "Icon-only badges are labelled.", iconOnly);
+    const iconShown = badges.filter((b) => {
+      const svg = b.querySelector("svg");
+      return svg && textOf(b) && svg.getAttribute("aria-hidden") !== "true";
+    });
+    add("Badge", "Icon Not Hidden from Screen Readers", iconShown.length ? "warn" : "pass",
+      iconShown.length ? "Decorative badge icons should have aria-hidden=\"true\"." : "Badge icons are hidden from AT.", iconShown);
+    const badRadius = badges.filter((b) => !near(px(cs(b).borderTopLeftRadius), 4, 2));
+    add("Badge", "Incorrect Border Radius", badRadius.length ? "warn" : "pass",
+      badRadius.length ? "Badge radius should be 4px (0.25rem)." : "Badge radius matches the spec.", badRadius);
+    const badPadX = badges.filter((b) => !near(px(cs(b).paddingLeft), 8, 2));
+    add("Badge", "Invalid Horizontal Padding", badPadX.length ? "warn" : "pass",
+      badPadX.length ? "Badge horizontal padding should be 8px." : "Badge padding matches the spec.", badPadX);
+  }
+
+  // ---------- Banner ----------
+  const banners = q(".aegov-banner");
+  if (banners.length) {
+    const noContent = banners.filter((b) => !b.querySelector(".banner-content"));
+    add("Banner", "Missing Banner Content Div", noContent.length ? "fail" : "pass",
+      noContent.length ? "Banner needs a .banner-content wrapper." : "Banner content wrapper present.", noContent);
+    const noRole = banners.filter((b) => !b.getAttribute("role") && !b.closest("[role]"));
+    add("Banner", "Missing Role", noRole.length ? "fail" : "pass",
+      noRole.length ? "Banner should declare a role (e.g. region/alert) for screen readers." : "Banner role present.", noRole);
+    const noP = banners.filter((b) => !b.querySelector("p"));
+    add("Banner", "Paragraph Not Present", noP.length ? "warn" : "pass",
+      noP.length ? "Banner text should be in a <p> element." : "Banner text uses <p>.", noP);
+    const badPad = banners.filter((b) => !near(px(cs(b).paddingLeft), 16, 4) || !near(px(cs(b).paddingTop), 12, 4));
+    add("Banner", "Invalid Padding", badPad.length ? "warn" : "pass",
+      badPad.length ? "Banner padding should be 16px inline / 12px block." : "Banner padding matches the spec.", badPad);
+    const topNotSticky = banners.filter((b) =>
+      b.classList.contains("banner-top") && !/(sticky|fixed)/.test(cs(b).position));
+    add("Banner", "Invalid banner position", topNotSticky.length ? "fail" : "pass",
+      topNotSticky.length ? "Top banners must be sticky/fixed." : "Banner positioning is correct.", topNotSticky);
+  }
+
+  // ---------- Steps ----------
+  const steps = q(".aegov-step");
+  if (steps.length) {
+    const noList = steps.filter((s) => !s.querySelector("ol[role='list'], ol"));
+    add("Steps", "Missing <ol role='list'>", noList.length ? "fail" : "pass",
+      noList.length ? "Steps must be an ordered list with role=\"list\"." : "Steps use an ordered list.", noList);
+    const items = steps.flatMap((s) => [...s.querySelectorAll("li")]);
+    add("Steps", "No Step Items Found", items.length ? "pass" : "fail",
+      items.length ? items.length + " step item(s) found." : "aegov-step has no items.", items.length ? [] : steps);
+    const noBadge = items.filter((i) => !i.querySelector(".step-badge"));
+    add("Steps", "Missing Badge", noBadge.length ? "warn" : "pass",
+      noBadge.length ? "Each step should carry a .step-badge." : "All steps have badges.", noBadge);
+    const current = items.filter((i) => i.getAttribute("aria-current") || i.querySelector("[aria-current]"));
+    add("Steps", "Current Step Missing aria-current", current.length >= 1 ? "pass" : "fail",
+      current.length >= 1 ? "aria-current present." : "No step declares aria-current=\"step\".", current.length ? [] : steps);
+    add("Steps", "Multiple Current Steps", current.length > 1 ? "fail" : "pass",
+      current.length > 1 ? current.length + " steps claim aria-current." : "At most one current step.", current.length > 1 ? current : []);
+    const connectors = steps.flatMap((s) => [...s.querySelectorAll(".step-connector, [class*='connector']")]);
+    const loudConnectors = connectors.filter((c) => c.getAttribute("aria-hidden") !== "true");
+    add("Steps", "Connector Should Be Decorative", loudConnectors.length ? "warn" : "pass",
+      loudConnectors.length ? "Step connectors should have aria-hidden=\"true\"." : "Connectors are decorative.", loudConnectors);
+  }
+
+  // ---------- Tabs ----------
+  const tabs = q(".aegov-tab");
+  if (tabs.length) {
+    const t = tabs[0];
+    const list = t.querySelector("ul, [role='tablist']");
+    add("Tabs", "Missing ul list", list ? "pass" : "fail",
+      list ? "Tab list present." : "aegov-tab needs a tab list (ul/tablist).", list ? [] : [t]);
+    const toggles = [...t.querySelectorAll("[data-tabs-toggle], [data-tab-target], [href^='#']")];
+    const links = [...t.querySelectorAll(".tab-link, [role='tab'], a, button")];
+    const badRole = links.filter((l) => l.getAttribute("role") !== "tab");
+    add("Tabs", "Invalid Role Attribute", badRole.length === links.length && links.length ? "fail" : badRole.length ? "warn" : "pass",
+      badRole.length ? badRole.length + " tab trigger(s) missing role=\"tab\"." : "Tab triggers declare role=\"tab\".", badRole);
+    const active = [...t.querySelectorAll(".tab-active, [aria-selected='true']")];
+    add("Tabs", "Invalid Number of Active Tabs", active.length === 1 ? "pass" : "fail",
+      active.length === 1 ? "Exactly one active tab." : active.length + " active tabs (expected 1).", active.length === 1 ? [] : (active.length ? active : [t]));
+    const targets = toggles.map((x) => (x.getAttribute("data-tab-target") || x.getAttribute("href") || "").replace("#", "")).filter(Boolean);
+    const missingPanels = targets.filter((id) => !document.getElementById(id));
+    add("Tabs", "Mismatch Between Tab Targets and Panel IDs", missingPanels.length ? "fail" : "pass",
+      missingPanels.length ? "Tab targets with no matching panel: " + missingPanels.join(", ") : "All tab targets resolve to panels.", []);
+  }
+
+  // ---------- Hyperlink ----------
+  const blankLinks = q("a[target='_blank']");
+  if (blankLinks.length) {
+    const insecure = blankLinks.filter((a) => !/(noopener|noreferrer)/.test(a.getAttribute("rel") || ""));
+    add("Hyperlink", "Hyperlink Missed Security Attributes", insecure.length ? "fail" : "pass",
+      insecure.length ? "target=\"_blank\" links need rel=\"noopener noreferrer\"." : "External links carry security attributes.", insecure);
+    const noNotice = blankLinks.filter((a) => !/(new (tab|window))/i.test((a.getAttribute("aria-label") || "") + (a.getAttribute("title") || "") + textOf(a)) && !a.querySelector(".sr-only"));
+    add("Hyperlink", "Hyperlink Missing Screen Only Notice", noNotice.length ? "warn" : "pass",
+      noNotice.length ? "Links opening new tabs should announce it (sr-only text or aria-label)." : "New-tab links announce themselves.", noNotice);
+  }
+
+  // ---------- Generic component validations (report-style) ----------
+  const GENERIC = [
+    ["Accordion", "aegov-accordion", ".accordion, details"],
+    ["Alert", "aegov-alert", "[role='alert'], .alert"],
+    ["Breadcrumb", "aegov-breadcrumb", ".breadcrumb"],
+    ["Card", "aegov-card", ".card"],
+    ["Checkbox", "aegov-check-item", "input[type='checkbox']"],
+    ["Dropdown", "aegov-dropdown", ".dropdown"],
+    ["Modal", "aegov-modal", "dialog, [role='dialog'], .modal"],
+    ["Pagination", "aegov-pagination", ".pagination, nav[aria-label*='pag' i]"],
+    ["Radio", "aegov-check-item", "input[type='radio']"],
+    ["Select", "aegov-form-control", "select"],
+    ["Toast", "aegov-toast", "[role='status'], .toast"],
+    ["Toggle", "aegov-toggle", "input[type='checkbox'][role='switch'], .toggle, .switch"],
+    ["Tooltip", "aegov-tooltip", "[data-tooltip], [role='tooltip']"],
+    ["Header", "aegov-header", "header"],
+  ];
+  for (const [name, cls, nativeSel] of GENERIC) {
+    const dls = q("." + cls);
+    let native = [];
+    try { native = q(nativeSel).filter((el) => !el.closest("." + cls)); } catch (_) {}
+    if (dls.length) {
+      add(name, name + " Validation", "pass", `${dls.length} ${cls} instance(s) found.`, []);
+    } else if (native.length) {
+      add(name, name + " Validation", "warn",
+        `${name} pattern present (${native.length}) but not using the ${cls} component standard.`, native);
+    } else {
+      add(name, name + " Validation", "na", "Not implemented on this page.", []);
+    }
+  }
+
+  return rows;
+}
+
 /* ---------- message router ---------- */
 
 const DEFAULT_SETTINGS = { level: "wcag22aa", bestPractice: false, flowInterval: 4, lang: "en", framework: "html", mode: "a11y", dlsContrast: false };
@@ -936,6 +1128,8 @@ EXT.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const dataUrl = await EXT.tabs.captureVisibleTab(tab.windowId, { format: "jpeg", quality: 75 });
         return { result: dataUrl };
       }
+      case "dlsComponents":
+        return { result: await exec(tabId, dlsComponentAuditInPage, [DLS_DATA]) };
       case "dlsHighlight":
         return { result: await exec(tabId, dlsHighlightInPage, [DLS_DATA]) };
       case "helper":

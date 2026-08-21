@@ -2094,6 +2094,8 @@ const DLS_STR = {
     btnBad: (n, off) => `${off.length} of ${n} buttons are off-spec (expected 32/40/48/52px): ` + off.map((o) => o.height + "px").join(", "),
     exportHtml: "⬇ HTML", exportPdf: "⬇ PDF",
     highlightGaps: "◉ Highlight gaps",
+    compChecks: (p, w, f) => `Component checks — ${p} pass · ${w} warn · ${f} fail`,
+    compNA: (n) => `${n} component(s) not present on this page (hidden)`,
     affected: "Affected elements:",
     fixLabel: "Suggested fix:",
     screenshotNote: "Viewport screenshot with DLS gaps outlined (gold dashed):",
@@ -2139,6 +2141,8 @@ const DLS_STR = {
     btnBad: (n, off) => `${off.length} من ${n} زراً خارج المواصفة (المتوقع 32/40/48/52 بكسل): ` + off.map((o) => o.height + "px").join("، "),
     exportHtml: "⬇ HTML", exportPdf: "⬇ PDF",
     highlightGaps: "◉ تظليل الفجوات",
+    compChecks: (p, w, f) => `فحوصات المكوّنات — ${p} ناجح · ${w} تحذير · ${f} فاشل`,
+    compNA: (n) => `${n} مكوّناً غير موجود في هذه الصفحة (مخفي)`,
     affected: "العناصر المتأثرة:",
     fixLabel: "الإصلاح المقترح:",
     screenshotNote: "لقطة شاشة لمنطقة العرض مع تحديد الفجوات (إطار ذهبي متقطع):",
@@ -2162,6 +2166,9 @@ async function runDlsCheck() {
   try {
     const r = await bg("dlsCheck");
     renderDlsReport(r);
+    try {
+      renderDlsComponents(await bg("dlsComponents"));
+    } catch (_) {}
     statusEl.textContent = "";
   } catch (err) {
     statusEl.textContent = "DLS check failed: " + (err?.message || err);
@@ -2258,6 +2265,7 @@ function dlsDocFor(label) {
 function renderDlsReport(r) {
   dlsReportEl.hidden = false;
   dlsReportEl.textContent = "";
+  lastDlsComponents = null;
   const h = document.createElement("h2");
   h.textContent = dt("title");
   dlsReportEl.appendChild(h);
@@ -2442,6 +2450,64 @@ function renderDlsReport(r) {
 }
 
 let lastDlsExport = null;
+let lastDlsComponents = null;
+
+function renderDlsComponents(rows) {
+  lastDlsComponents = rows;
+  const active = rows.filter((r) => r.status !== "na");
+  const na = rows.length - active.length;
+  const p = active.filter((r) => r.status === "pass").length;
+  const w = active.filter((r) => r.status === "warn").length;
+  const f = active.filter((r) => r.status === "fail").length;
+
+  const det = document.createElement("details");
+  det.className = "dls-comp";
+  det.open = f + w > 0;
+  const sum = document.createElement("summary");
+  sum.className = "section-summary";
+  sum.textContent = dt("compChecks", p, w, f);
+  det.appendChild(sum);
+
+  const order = { fail: 0, warn: 1, pass: 2 };
+  for (const r of active.sort((a, b) => order[a.status] - order[b.status])) {
+    const row = document.createElement("div");
+    row.className = "dls-row";
+    const v = document.createElement("span");
+    v.className = "dls-verdict " + (r.status === "pass" ? "pass" : r.status === "warn" ? "warn" : "fail");
+    v.textContent = r.status === "pass" ? "✓ PASS" : r.status === "warn" ? "△ WARN" : "✗ FAIL";
+    const l = document.createElement("span");
+    l.className = "dls-label";
+    l.textContent = r.component;
+    const d = document.createElement("span");
+    d.className = "dls-detail";
+    d.append(r.check + (r.count ? ` (${r.count})` : "") + " — " + r.issue);
+    if (r.sels && r.sels.length) {
+      const list = document.createElement("div");
+      list.className = "dls-els";
+      for (const sel of r.sels) {
+        const item = document.createElement("div");
+        const code = document.createElement("code");
+        code.textContent = sel;
+        code.title = "Click to highlight on the page";
+        code.style.cursor = "pointer";
+        code.addEventListener("click", () => highlight([sel]));
+        item.appendChild(code);
+        list.appendChild(item);
+      }
+      d.appendChild(list);
+    }
+    row.append(v, l, d);
+    det.appendChild(row);
+  }
+  if (na > 0) {
+    const note = document.createElement("div");
+    note.className = "dls-row";
+    note.style.opacity = "0.6";
+    note.textContent = dt("compNA", na);
+    det.appendChild(note);
+  }
+  dlsReportEl.appendChild(det);
+}
 
 function dlsSectionHtml(dlsShot) {
   if (!lastDlsExport) return "";
@@ -2462,10 +2528,25 @@ function dlsSectionHtml(dlsShot) {
           <div style="color:#2e7d32;font-weight:700;font-size:11px">${escHtml(dt("fixLabel"))}</div>
           <code style="display:block;white-space:pre-wrap;word-break:break-all;font-size:12px">${escHtml(r.fix)}</code></div>` : ""}</td>
     </tr>`).join("");
+  const compRows = (lastDlsComponents || []).filter((r) => r.status !== "na");
+  const compHtml = !compRows.length ? "" : `
+  <h3 style="margin-top:18px">Component checks</h3>
+  <table style="border-collapse:collapse;width:100%;font-size:13px">
+    ${compRows.map((r) => `
+    <tr>
+      <td style="padding:4px 8px;border-bottom:1px solid #eee;font-weight:700;white-space:nowrap;color:${
+        r.status === "pass" ? "#2e7d32" : r.status === "warn" ? "#b68a35" : "#d32f2f"}">${
+        r.status === "pass" ? "✓ PASS" : r.status === "warn" ? "△ WARN" : "✗ FAIL"}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #eee;font-weight:600;white-space:nowrap">${escHtml(r.component)}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(r.check)}${r.count ? " (" + r.count + ")" : ""} — ${escHtml(r.issue)}${
+        r.sels && r.sels.length ? `<div>${r.sels.map((s) => `<code style="background:#f4f0e8;border-radius:3px;padding:0 4px;font-size:11px">${escHtml(s)}</code>`).join(" ")}</div>` : ""}</td>
+    </tr>`).join("")}
+  </table>`;
   return `
   <h2 style="font-size:18px;margin-top:30px;border-top:4px solid #b68a35;padding-top:12px">🇦🇪 ${escHtml(dt("reportTitle"))}
     <small style="color:#888">— ${lastDlsExport.score.passed}/${lastDlsExport.score.total}</small></h2>
   <table style="border-collapse:collapse;width:100%">${rows}</table>
+  ${compHtml}
   ${dlsShotHtml}
   <p style="color:#999;font-size:12px">Heuristic check based on @aegov/design-system v3 conventions (designsystem.gov.ae). Not an official TDRA certification.</p>`;
 }
